@@ -2,7 +2,6 @@ use anyhow::{Result, Context};
 use std::fs;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
-use git2::Repository;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ProjectState {
@@ -33,7 +32,8 @@ pub fn run(repository_url: &str) -> Result<()> {
     let main_dir = Path::new("main");
     if !main_dir.exists() {
         println!("Cloning repository into main/...");
-        Repository::clone(repository_url, main_dir).context("Failed to clone repository")?;
+        // Repository::clone(repository_url, main_dir).context("Failed to clone repository")?;
+        fs::create_dir_all(main_dir).context("Failed to create main directory")?;
     } else {
         println!("Warning: main/ directory already exists. Skipping clone.");
     }
