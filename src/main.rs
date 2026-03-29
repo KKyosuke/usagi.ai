@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 
+mod command;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -29,8 +31,7 @@ fn main() -> Result<()> {
 
     match &cli.command {
         Commands::Init { repository_url } => {
-            println!("Initializing repository: {}", repository_url);
-            // TODO: Implement init logic
+            command::init::run(repository_url)?;
         }
         Commands::Start { new_branch_name, origin_branch_name } => {
             println!("Starting new workspace: {} from {:?}", new_branch_name, origin_branch_name);
