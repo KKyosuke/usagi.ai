@@ -1,2 +1,5 @@
+# Compiled class files
+target/
+
 # IDE files
 .idea
