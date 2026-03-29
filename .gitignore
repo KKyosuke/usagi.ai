@@ -1,5 +1,8 @@
 # Compiled class files
 target/
 
+# Test directory
+playground
+
 # IDE files
 .idea
