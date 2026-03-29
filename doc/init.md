@@ -33,7 +33,17 @@ After running `usagi init`, your directory will look like this:
 
 ```text
 .
-├── main/             # Cloned repository (named after branch)
-│   └── (repo contents)
-└── usagi.config      # Automatically generated configuration
+├── .usagi/             # 管理用ディレクトリ（ツール内部で使用）
+│   └── state.json      # 内部状態（初期化フラグ、ワークツリー一覧など）
+├── main/               # クローンされたリポジトリ（現在はディレクトリ作成のみ）
+├── usagi.config        # プロジェクトの設定ファイル（リポジトリURLなど）
+└── .gitignore          # .usagi/ ディレクトリを無視するための設定
 ```
+
+### File/Directory Details
+
+- **`.usagi/`**: `usagi` CLI がプロジェクトの管理状態を保持するための隠しディレクトリです。
+    - **`state.json`**: プロジェクトが初期化済みかどうか (`initialized: true`) や、今後作成されるワークツリーのリストなどを管理する JSON ファイルです。
+- **`main/`**: 指定したリポジトリがクローンされるメインの作業ディレクトリです。
+- **`usagi.config`**: ユーザーが参照・編集可能な設定ファイルです。初期状態では、`init` 時に指定したリポジトリの URL が書き込まれます。
+- **`.gitignore`**: Git で管理する場合に、ツール内部の状態を保持する `.usagi/` ディレクトリを無視するように設定が追記されます。既存のファイルがある場合は追記され、ない場合は新規作成されます。
