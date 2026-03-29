@@ -32,8 +32,7 @@ pub fn run(repository_url: &str) -> Result<()> {
     let main_dir = Path::new("main");
     if !main_dir.exists() {
         println!("Cloning repository into main/...");
-        // Repository::clone(repository_url, main_dir).context("Failed to clone repository")?;
-        fs::create_dir_all(main_dir).context("Failed to create main directory")?;
+        git2::Repository::clone(repository_url, main_dir).context("Failed to clone repository")?;
     } else {
         println!("Warning: main/ directory already exists. Skipping clone.");
     }
