@@ -1,26 +1,14 @@
 use anyhow::{Result, Context, anyhow};
-use std::fs;
-use std::path::{Path, PathBuf};
-use console::{Term, Key, style};
-use crate::command::init::ProjectState;
+use std::path::PathBuf;
+use console::{Term, Key, style, measure_text_width};
+use crate::application::init::get_project_state;
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
-    // 0. プロジェクトディレクトリへ移動
-    if !project_path.exists() {
-        return Err(anyhow!("Project path does not exist: {}", project_path.display()));
-    }
+    // 1 & 2. ProjectState の読み込みと初期化チェック
+    let state = get_project_state(&project_path)
+        .map_err(|_| anyhow!("Error: Not an initialized directory. Please run `usagi init` first."))?;
+
     std::env::set_current_dir(&project_path).context(format!("Failed to change directory to {}", project_path.display()))?;
-
-    // 1. 初期化チェック
-    let usagi_dir = Path::new(".usagi");
-    let state_path = usagi_dir.join("state.json");
-    if !usagi_dir.exists() || !state_path.exists() {
-        return Err(anyhow!("Error: Not an initialized directory. Please run `usagi init` first."));
-    }
-
-    // 2. ProjectState の読み込み
-    let state_json = fs::read_to_string(&state_path).context("Failed to read project state")?;
-    let state: ProjectState = serde_json::from_str(&state_json).context("Failed to parse project state")?;
 
     // 3. ワークツリー一覧の作成 (main + state.worktrees)
     let mut worktrees = vec!["main".to_string()];
@@ -53,9 +41,12 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
 
         // 左右分割描画
         for i in 0..(height as usize - 5) {
-            let left_content = if i < worktrees.len() {
-                let wt = &worktrees[i];
-                if i == selected_index {
+            let left_content = if i == 0 {
+                style("workspace").bold().to_string()
+            } else if i - 1 < worktrees.len() {
+                let wt_idx = i - 1;
+                let wt = &worktrees[wt_idx];
+                if wt_idx == selected_index {
                     format!("> {}", style(wt).cyan().bold())
                 } else {
                     format!("  {}", wt)
@@ -65,7 +56,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             };
 
             // 左側の幅を調整
-            let left_display = format!("{:<width$}", left_content, width = left_width);
+            let left_padding = left_width.saturating_sub(measure_text_width(&left_content));
+            let left_display = format!("{}{:width$}", left_content, "", width = left_padding);
             
             // 右側の表示内容 (履歴)
             let right_content = if i == 0 {
@@ -79,7 +71,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 }
             };
             
-            let right_display = format!("{:<width$}", right_content, width = right_width);
+            let right_padding = right_width.saturating_sub(measure_text_width(&right_content));
+            let right_display = format!("{}{:width$}", right_content, "", width = right_padding);
 
             term.write_line(&format!("{} | {}", left_display, right_display))?;
         }
@@ -87,7 +80,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         // 入力欄
         term.move_cursor_to(0, height as usize - 4)?;
         term.write_line(&format!("{:-<width$}", "", width = width as usize))?;
-        term.write_line(&format!("{:<left_width$} | $ ", "COMMAND", left_width = left_width))?;
+        let command_padding = left_width.saturating_sub(measure_text_width("COMMAND"));
+        term.write_line(&format!("COMMAND{:padding$} | $ ", "", padding = command_padding))?;
 
         // 下部ヘルプ
         term.move_cursor_to(0, height as usize - 2)?;

@@ -65,8 +65,6 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
 
     let mut repos = get_repositories()?;
     let mut selected_index = 0;
-    let mut worktree_selected_index = 0;
-    let mut active_column = 0; // 0: Projects, 1: Worktrees
     let term = Term::stdout();
 
     loop {
@@ -84,63 +82,25 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         }).collect();
         project_items.push(format!("+ {}", style("New project").yellow().bold()));
 
-        // Worktrees list
-        let mut worktree_items = vec![];
-        if selected_index < repos.len() {
-            let selected_path = &repos[selected_index];
-            if let Ok(state) = get_project_state(selected_path) {
-                worktree_items = state.worktrees.clone();
-                if selected_path.join("main").exists() && !worktree_items.contains(&"main".to_string()) {
-                    worktree_items.insert(0, "main".to_string());
-                }
-            }
-        }
-
         layout::render_menu(
             &project_items,
             selected_index,
-            &worktree_items,
-            if worktree_items.is_empty() { None } else { Some(worktree_selected_index) },
-            active_column
         );
 
         let key = term.read_key().context("Failed to read key")?;
         
         // Clear lines: menu + rabbit + header
-        let lines_to_clear = project_items.len().max(worktree_items.len()) + 3;
+        let lines_to_clear = project_items.len() + 3;
         term.clear_last_lines(lines_to_clear).context("Failed to clear lines")?;
 
         match key {
             Key::ArrowUp => {
-                if active_column == 0 {
-                    if selected_index > 0 { selected_index -= 1; }
-                    else { selected_index = project_items.len() - 1; }
-                    worktree_selected_index = 0;
-                } else {
-                    if !worktree_items.is_empty() {
-                        if worktree_selected_index > 0 { worktree_selected_index -= 1; }
-                        else { worktree_selected_index = worktree_items.len() - 1; }
-                    }
-                }
+                if selected_index > 0 { selected_index -= 1; }
+                else { selected_index = project_items.len() - 1; }
             }
             Key::ArrowDown => {
-                if active_column == 0 {
-                    if selected_index < project_items.len() - 1 { selected_index += 1; }
-                    else { selected_index = 0; }
-                    worktree_selected_index = 0;
-                } else {
-                    if !worktree_items.is_empty() {
-                        if worktree_selected_index < worktree_items.len() - 1 { worktree_selected_index += 1; }
-                        else { worktree_selected_index = 0; }
-                    }
-                }
-            }
-            Key::ArrowLeft | Key::ArrowRight => {
-                if active_column == 0 && selected_index < repos.len() {
-                    active_column = 1;
-                } else {
-                    active_column = 0;
-                }
+                if selected_index < project_items.len() - 1 { selected_index += 1; }
+                else { selected_index = 0; }
             }
             Key::Enter => {
                 if selected_index < repos.len() {
@@ -158,12 +118,7 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                         continue;
                     }
 
-                    if active_column == 1 && !worktree_items.is_empty() {
-                        let selected = &worktree_items[worktree_selected_index];
-                        return Ok(Some((selected_path.to_path_buf(), Some(selected.to_string()))));
-                    } else if active_column == 0 {
-                        return Ok(Some((selected_path.to_path_buf(), None)));
-                    }
+                    return Ok(Some((selected_path.to_path_buf(), None)));
                 } else {
                     // New project
                     let repo_url = Text::new("Repository URL:").prompt()?;
@@ -182,14 +137,6 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                     };
 
                     return crate::command::init::run(&repo_url, directory, branch).map(|_| None);
-                }
-            }
-            Key::Char('n') => {
-                if active_column == 1 && selected_index < repos.len() {
-                    let selected_path = &repos[selected_index];
-                    println!("Creating new workspace...");
-                    println!("Please run: usagi start <new_branch_name> (in {})", selected_path.display());
-                    return Ok(None);
                 }
             }
             Key::Char('q') | Key::Escape => {
