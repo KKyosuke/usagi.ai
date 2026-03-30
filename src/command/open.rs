@@ -24,16 +24,17 @@ pub fn run() -> Result<()> {
         items.insert(0, "main".to_string());
     }
 
-    if items.is_empty() {
-        println!("No worktrees found. Press 'n' to create a new one, or 'q' to quit.");
-    } else {
-        println!("Use Up/Down to select, Enter to open, 'n' for new, 'q' to quit.");
-    }
-
     let term = Term::stdout();
     let mut selected_index = 0;
 
     loop {
+        // ヘルプメッセージの表示
+        if items.is_empty() {
+            println!("No worktrees found. Press 'n' for new, 'q' to quit.");
+        } else {
+            println!("Use Up/Down to select, Enter to open, 'n' for new, 'q' to quit.");
+        }
+
         // メニューの描画
         for (i, item) in items.iter().enumerate() {
             if i == selected_index {
@@ -47,7 +48,7 @@ pub fn run() -> Result<()> {
         let key = term.read_key().context("Failed to read key")?;
 
         // 描画した行をクリア
-        term.clear_last_lines(items.len()).context("Failed to clear lines")?;
+        term.clear_last_lines(items.len() + 1).context("Failed to clear lines")?;
 
         match key {
             Key::ArrowUp => {
@@ -97,8 +98,8 @@ fn show_rabbit() {
     let rabbit = r#"
 　　　　 　/ \ / \
 　　　　　(  o.o  )
-　　　　　 > ^ <
+　　　　　  > ^ <
     "#;
     println!("{}", style(rabbit).magenta());
-    println!("--- USAGI AI ---");
+    println!("---------- USAGI AI ----------");
 }

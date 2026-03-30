@@ -18,7 +18,7 @@ Initialize a repository with:
 usagi init <repository-url>
 ```
 
-For more details on initialization, see [doc/init.md](doc/init.md).
+For more details on initialization, see [doc/init.md](doc/command/init.md).
 
 ### Start a new workspace
 
@@ -28,7 +28,7 @@ Create a new workspace for a branch with:
 usagi start <new-branch-name> [origin-branch-name]
 ```
 
-For more details on creating workspaces, see [doc/start.md](doc/start.md).
+For more details on creating workspaces, see [doc/start.md](doc/command/start.md).
 
 ## Project Structure
 
