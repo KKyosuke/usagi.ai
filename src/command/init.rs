@@ -11,8 +11,8 @@ pub struct ProjectState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct Repositories {
-    repositories: Vec<PathBuf>,
+pub struct Repositories {
+    pub repositories: Vec<PathBuf>,
 }
 
 pub fn run(repository_url: &str) -> Result<()> {
