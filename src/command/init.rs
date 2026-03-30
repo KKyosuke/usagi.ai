@@ -1,19 +1,9 @@
 use anyhow::{Result, Context, anyhow};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
 use directories::ProjectDirs;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProjectState {
-    pub initialized: bool,
-    pub worktrees: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct Repositories {
-    pub repositories: Vec<PathBuf>,
-}
+pub use crate::application::init::{ProjectState, Repositories};
 
 pub fn run(repository_url: &str, directory: Option<PathBuf>, branch: Option<String>) -> Result<()> {
     if let Some(dir) = directory {

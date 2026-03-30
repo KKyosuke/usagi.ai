@@ -8,7 +8,14 @@ A tool designed for efficient use of AI Agent CLIs.
 
 ## Installation
 
-(Add installation instructions here when available)
+### From Source (using Cargo)
+```bash
+cargo install --git https://github.com/KKyosuke/usagi.ai
+```
+
+### From GitHub Releases
+Download the latest binary for your OS from the [Releases](https://github.com/KKyosuke/usagi.ai/releases) page.
+Unzip (if needed) and move the binary to a directory in your PATH.
 
 ## Quick Start
 
@@ -20,15 +27,6 @@ usagi init <repository-url>
 
 For more details on initialization, see [doc/init.md](doc/command/init.md).
 
-### Start a new workspace
-
-Create a new workspace for a branch with:
-
-```bash
-usagi start <new-branch-name> [origin-branch-name]
-```
-
-For more details on creating workspaces, see [doc/start.md](doc/command/start.md).
 
 ## Project Structure
 

@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use anyhow::Result;
 
 mod command;
+mod application;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -23,15 +24,10 @@ enum Commands {
         #[arg(short, long)]
         branch: Option<String>,
     },
-    /// Create a new workspace for a branch
-    Start {
-        /// New branch name
-        new_branch_name: String,
-        /// Origin branch name (optional)
-        origin_branch_name: Option<String>,
-    },
     /// Open a workspace (interactive menu)
     Open,
+    /// Hop into usagi terminal
+    Hop,
 }
 
 fn main() -> Result<()> {
@@ -42,9 +38,9 @@ fn main() -> Result<()> {
             let directory = directory.as_ref().map(std::path::PathBuf::from);
             command::init::run(repository_url, directory, branch.clone())?;
         }
-        Some(Commands::Start { new_branch_name, origin_branch_name }) => {
-            println!("Starting new workspace: {} from {:?}", new_branch_name, origin_branch_name);
-            // TODO: Implement start logic
+        Some(Commands::Hop) => {
+            let current_dir = std::env::current_dir()?;
+            command::hop::run(current_dir, None)?;
         }
         Some(Commands::Open) | None => {
             command::open::run()?;
