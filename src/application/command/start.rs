@@ -1,6 +1,6 @@
 use anyhow::Result;
 
 pub fn run() -> Result<()> {
-    println!("close");
+    println!("start");
     Ok(())
 }

@@ -17,6 +17,9 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     // 4. TUI 画面の表示
     let term = Term::stdout();
     let mut selected_index = 0;
+    let mut current_input = String::new();
+    let mut is_command_mode = false;
+    let available_commands = vec!["start", "ai", "close"];
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -65,7 +68,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             } else {
                 let history_idx = i.saturating_sub(1);
                 if history_idx < command_history.len() {
-                    format!("$ {}", command_history[history_idx])
+                    command_history[history_idx].clone()
                 } else {
                     "".to_string()
                 }
@@ -81,23 +84,47 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.move_cursor_to(0, height as usize - 4)?;
         term.write_line(&format!("{:-<width$}", "", width = width as usize))?;
         let command_padding = left_width.saturating_sub(measure_text_width("COMMAND"));
-        term.write_line(&format!("COMMAND{:padding$} | $ ", "", padding = command_padding))?;
+        let command_prompt = format!("COMMAND{:padding$} | {}", "", current_input, padding = command_padding);
+        let command_display = format!("{:width$}", command_prompt, width = width as usize);
+        term.write_line(&command_display)?;
 
         // 下部ヘルプ
         term.move_cursor_to(0, height as usize - 2)?;
-        term.write_line(&format!("{}", style("Use Up/Down to select, Enter to type command, 'q' to quit.").dim()))?;
+        let help_text = if is_command_mode {
+            let suggestions: Vec<&str> = available_commands.iter()
+                .filter(|c| c.starts_with(&current_input))
+                .cloned()
+                .collect();
+            let suggestion_text = if suggestions.is_empty() {
+                "".to_string()
+            } else {
+                format!(" (Suggestions: {})", suggestions.join(", "))
+            };
+            format!("Enter: execute, Escape: cancel, Type to command...{}", style(suggestion_text).yellow())
+        } else {
+            style("Use Up/Down to select, Enter to type command, 'q' to quit.").dim().to_string()
+        };
+        term.write_line(&format!("{:width$}", help_text, width = width as usize))?;
+
+        if is_command_mode {
+            let cursor_x = left_width + 3 + measure_text_width(&current_input);
+            term.move_cursor_to(cursor_x, height as usize - 3)?;
+            term.show_cursor()?;
+        } else {
+            term.hide_cursor()?;
+        }
 
         let key = term.read_key().context("Failed to read key")?;
 
         match key {
-            Key::ArrowUp => {
+            Key::ArrowUp if !is_command_mode => {
                 if selected_index > 0 {
                     selected_index -= 1;
                 } else {
                     selected_index = worktrees.len().saturating_sub(1);
                 }
             }
-            Key::ArrowDown => {
+            Key::ArrowDown if !is_command_mode => {
                 if selected_index < worktrees.len().saturating_sub(1) {
                     selected_index += 1;
                 } else {
@@ -105,36 +132,30 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 }
             }
             Key::Enter => {
-                // コマンド入力モード (簡易実装)
-                term.move_cursor_to(left_width as usize + 5, height as usize - 3)?;
-                term.show_cursor()?;
-                let mut input = String::new();
-                loop {
-                    let k = term.read_key()?;
-                    match k {
-                        Key::Enter => break,
-                        Key::Char(c) => {
-                            input.push(c);
-                            print!("{}", c);
+                if is_command_mode {
+                    if !current_input.is_empty() {
+                        command_history.push(current_input.clone());
+                        if command_history.len() > (height as usize - 7) {
+                            command_history.remove(0);
                         }
-                        Key::Backspace => {
-                            if !input.is_empty() {
-                                input.pop();
-                                print!("\x08 \x08");
-                            }
-                        }
-                        _ => {}
+                        current_input.clear();
                     }
-                }
-                term.hide_cursor()?;
-                if !input.is_empty() {
-                    command_history.push(input);
-                    if command_history.len() > (height as usize - 7) {
-                        command_history.remove(0);
-                    }
+                    is_command_mode = false;
+                } else {
+                    is_command_mode = true;
                 }
             }
-            Key::Char('q') | Key::Escape => {
+            Key::Char(c) if is_command_mode => {
+                current_input.push(c);
+            }
+            Key::Backspace if is_command_mode => {
+                current_input.pop();
+            }
+            Key::Escape if is_command_mode => {
+                is_command_mode = false;
+                current_input.clear();
+            }
+            Key::Char('q') | Key::Escape if !is_command_mode => {
                 term.clear_screen()?;
                 println!("Hop exited.");
                 break;
