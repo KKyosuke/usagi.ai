@@ -76,7 +76,21 @@ pub fn run() -> Result<()> {
                 } else {
                     // New project
                     let repo_url = Text::new("Repository URL:").prompt()?;
-                    return crate::command::init::run(&repo_url);
+                    let directory = Text::new("Directory (optional):").prompt()?;
+                    let branch = Text::new("Branch (optional, leave empty for default):").prompt()?;
+
+                    let directory = if directory.is_empty() {
+                        None
+                    } else {
+                        Some(PathBuf::from(directory))
+                    };
+                    let branch = if branch.is_empty() {
+                        None
+                    } else {
+                        Some(branch)
+                    };
+
+                    return crate::command::init::run(&repo_url, directory, branch);
                 }
             }
             Key::Char('q') | Key::Escape => {

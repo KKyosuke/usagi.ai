@@ -15,7 +15,14 @@ pub struct Repositories {
     pub repositories: Vec<PathBuf>,
 }
 
-pub fn run(repository_url: &str) -> Result<()> {
+pub fn run(repository_url: &str, directory: Option<PathBuf>, branch: Option<String>) -> Result<()> {
+    if let Some(dir) = directory {
+        if !dir.exists() {
+            fs::create_dir_all(&dir).context("Failed to create target directory")?;
+        }
+        std::env::set_current_dir(&dir).context(format!("Failed to change directory to {}", dir.display()))?;
+    }
+
     println!("Initializing repository: {}", repository_url);
 
     // 1. .usagi/ ディレクトリの作成
@@ -38,7 +45,11 @@ pub fn run(repository_url: &str) -> Result<()> {
     let main_dir = Path::new("main");
     if !main_dir.exists() {
         println!("Cloning repository into main/...");
-        git2::Repository::clone(repository_url, main_dir).context("Failed to clone repository")?;
+        let mut builder = git2::build::RepoBuilder::new();
+        if let Some(ref b) = branch {
+            builder.branch(b);
+        }
+        builder.clone(repository_url, main_dir).context("Failed to clone repository")?;
     } else {
         println!("Warning: main/ directory already exists. Skipping clone.");
     }
