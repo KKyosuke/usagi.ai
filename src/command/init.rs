@@ -1,12 +1,18 @@
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, anyhow};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde::{Serialize, Deserialize};
+use directories::ProjectDirs;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct ProjectState {
-    initialized: bool,
-    worktrees: Vec<String>,
+pub struct ProjectState {
+    pub initialized: bool,
+    pub worktrees: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct Repositories {
+    repositories: Vec<PathBuf>,
 }
 
 pub fn run(repository_url: &str) -> Result<()> {
@@ -62,6 +68,33 @@ pub fn run(repository_url: &str) -> Result<()> {
         fs::write(gitignore_path, gitignore_content).context("Failed to write .gitignore")?;
     }
 
+    // 6. 共通データディレクトリへの登録
+    register_project()?;
+
     println!("Project initialized successfully.");
+    Ok(())
+}
+
+fn register_project() -> Result<()> {
+    let proj_dirs = ProjectDirs::from("", "", "usagi")
+        .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+    let data_dir = proj_dirs.data_dir();
+    fs::create_dir_all(data_dir).context("Failed to create data directory")?;
+
+    let repo_json_path = data_dir.join("repositories.json");
+    let mut repos = if repo_json_path.exists() {
+        let content = fs::read_to_string(&repo_json_path).context("Failed to read repositories.json")?;
+        serde_json::from_str(&content).context("Failed to parse repositories.json")?
+    } else {
+        Repositories::default()
+    };
+
+    let current_dir = std::env::current_dir().context("Failed to get current directory")?;
+    if !repos.repositories.contains(&current_dir) {
+        repos.repositories.push(current_dir);
+        let content = serde_json::to_string_pretty(&repos).context("Failed to serialize repositories")?;
+        fs::write(repo_json_path, content).context("Failed to write repositories.json")?;
+    }
+
     Ok(())
 }

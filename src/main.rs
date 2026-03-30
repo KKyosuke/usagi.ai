@@ -7,7 +7,7 @@ mod command;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -24,18 +24,23 @@ enum Commands {
         /// Origin branch name (optional)
         origin_branch_name: Option<String>,
     },
+    /// Open a workspace (interactive menu)
+    Open,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Init { repository_url } => {
+        Some(Commands::Init { repository_url }) => {
             command::init::run(repository_url)?;
         }
-        Commands::Start { new_branch_name, origin_branch_name } => {
+        Some(Commands::Start { new_branch_name, origin_branch_name }) => {
             println!("Starting new workspace: {} from {:?}", new_branch_name, origin_branch_name);
             // TODO: Implement start logic
+        }
+        Some(Commands::Open) | None => {
+            command::open::run()?;
         }
     }
 
