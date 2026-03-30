@@ -10,7 +10,7 @@ pub fn run() -> Result<()> {
     // 可愛いうさぎを表示する
     show_rabbit();
 
-    let repos = get_repositories()?;
+    let mut repos = get_repositories()?;
     
     let mut selected_index = 0;
     let term = Term::stdout();
@@ -60,8 +60,16 @@ pub fn run() -> Result<()> {
             Key::Enter => {
                 if selected_index < repos.len() {
                     let selected_path = &repos[selected_index];
-                    if !selected_path.exists() {
-                        println!("Directory does not exist: {}", selected_path.display());
+                    let config_path = selected_path.join("usagi.config");
+                    
+                    if !selected_path.exists() || !config_path.exists() {
+                        if show_delete_modal(selected_path)? {
+                            repos.remove(selected_index);
+                            save_repositories(&repos)?;
+                            if selected_index >= repos.len() && !repos.is_empty() {
+                                selected_index = repos.len() - 1;
+                            }
+                        }
                         continue;
                     }
                     return show_worktree_menu(selected_path);
@@ -94,6 +102,62 @@ fn get_repositories() -> Result<Vec<PathBuf>> {
         Ok(repos.repositories)
     } else {
         Ok(vec![])
+    }
+}
+
+fn save_repositories(repos: &[PathBuf]) -> Result<()> {
+    let proj_dirs = ProjectDirs::from("", "", "usagi")
+        .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+    let data_dir = proj_dirs.data_dir();
+    fs::create_dir_all(data_dir).context("Failed to create data directory")?;
+
+    let repo_json_path = data_dir.join("repositories.json");
+    let repos_struct = Repositories {
+        repositories: repos.to_vec(),
+    };
+    let content = serde_json::to_string_pretty(&repos_struct).context("Failed to serialize repositories")?;
+    fs::write(repo_json_path, content).context("Failed to write repositories.json")?;
+
+    Ok(())
+}
+
+fn show_delete_modal(path: &Path) -> Result<bool> {
+    let term = Term::stdout();
+    let mut delete_selected = true;
+
+    loop {
+        println!("Project config is missing or directory not found: {}", style(path.display()).yellow());
+        println!("Do you want to delete this project from list or keep it?");
+        
+        let delete_btn = if delete_selected {
+            style("[ Delete ]").cyan().bold()
+        } else {
+            style("[ Delete ]").white()
+        };
+
+        let keep_btn = if !delete_selected {
+            style("[ Keep ]").cyan().bold()
+        } else {
+            style("[ Keep ]").white()
+        };
+
+        println!("  {}     {}", delete_btn, keep_btn);
+
+        let key = term.read_key().context("Failed to read key")?;
+        term.clear_last_lines(3).context("Failed to clear lines")?;
+
+        match key {
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown => {
+                delete_selected = !delete_selected;
+            }
+            Key::Enter => {
+                return Ok(delete_selected);
+            }
+            Key::Escape | Key::Char('q') => {
+                return Ok(false);
+            }
+            _ => {}
+        }
     }
 }
 
