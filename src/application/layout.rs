@@ -28,7 +28,6 @@ pub fn show_rabbit(mode: AppMode) {
     "#;
     println!("{}", style(rabbit).magenta());
     println!("---------- USAGI AI ----------");
-    println!("MODE: {}", style(mode.label()).bold().cyan());
 }
 
 pub fn render_menu(

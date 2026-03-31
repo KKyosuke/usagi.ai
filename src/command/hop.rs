@@ -47,7 +47,11 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             AppMode::Menu
         };
         term.write_line(&format!("{}", style("----- USAGI TERMINAL -----").magenta().bold()))?;
-        term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
+        if !matches!(mode, AppMode::Menu) {
+            term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
+        } else {
+            term.write_line("")?;
+        }
 
         // 左右分割描画
         for i in 0..(height as usize - 6) {
