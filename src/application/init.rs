@@ -61,7 +61,7 @@ pub fn get_project_state(project_path: &Path) -> Result<ProjectState> {
 }
 
 pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
-    layout::show_rabbit();
+    layout::show_rabbit(layout::AppMode::Menu);
 
     let mut repos = get_repositories()?;
     let mut selected_index = 0;

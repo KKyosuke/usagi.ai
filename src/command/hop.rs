@@ -2,6 +2,7 @@ use anyhow::{Result, Context, anyhow};
 use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
+use crate::application::layout::AppMode;
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
@@ -40,10 +41,16 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         
         // ヘッダー表示
         term.move_cursor_to(0, 0)?;
+        let mode = if is_command_mode {
+            AppMode::Command
+        } else {
+            AppMode::Menu
+        };
         term.write_line(&format!("{}", style("----- USAGI TERMINAL -----").magenta().bold()))?;
+        term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
 
         // 左右分割描画
-        for i in 0..(height as usize - 5) {
+        for i in 0..(height as usize - 6) {
             let left_content = if i == 0 {
                 style("workspace").bold().to_string()
             } else if i - 1 < worktrees.len() {

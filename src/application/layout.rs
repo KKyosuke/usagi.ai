@@ -1,6 +1,26 @@
 use console::style;
 
-pub fn show_rabbit() {
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub enum AppMode {
+    Global,
+    Menu,
+    Command,
+    Execution,
+}
+
+impl AppMode {
+    pub fn label(&self) -> &str {
+        match self {
+            AppMode::Global => "全体モード",
+            AppMode::Menu => "メニューモード",
+            AppMode::Command => "コマンドモード",
+            AppMode::Execution => "実行モード",
+        }
+    }
+}
+
+pub fn show_rabbit(mode: AppMode) {
     let rabbit = r#"
 　　　　 　/ \ / \
 　　　　　(  o.o  )
@@ -8,6 +28,7 @@ pub fn show_rabbit() {
     "#;
     println!("{}", style(rabbit).magenta());
     println!("---------- USAGI AI ----------");
+    println!("MODE: {}", style(mode.label()).bold().cyan());
 }
 
 pub fn render_menu(
