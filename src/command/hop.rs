@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
 use crate::application::layout::AppMode;
+use crate::application::command::session;
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
@@ -20,11 +21,15 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut selected_index = 0;
     let mut current_input = String::new();
     let mut is_command_mode = false;
-    let available_commands = vec!["start", "ai", "close"];
+    let available_commands = vec!["session", "ai", "close"];
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
         if let Some(idx) = worktrees.iter().position(|wt| wt == &initial_wt) {
+            selected_index = idx;
+        }
+    } else if let Some(current_wt) = &state.current_worktree {
+        if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
             selected_index = idx;
         }
     }
@@ -44,14 +49,10 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         let mode = if is_command_mode {
             AppMode::Command
         } else {
-            AppMode::Menu
+            AppMode::SideMenu
         };
         term.write_line(&format!("{}", style("----- USAGI TERMINAL -----").magenta().bold()))?;
-        if !matches!(mode, AppMode::Menu) {
-            term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
-        } else {
-            term.write_line("")?;
-        }
+        term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
 
         // 左右分割描画
         for i in 0..(height as usize - 6) {
@@ -145,13 +146,46 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             Key::Enter => {
                 if is_command_mode {
                     if !current_input.is_empty() {
-                        command_history.push(current_input.clone());
+                        let parts: Vec<String> = current_input.split_whitespace().map(|s| s.to_string()).collect();
+                        if !parts.is_empty() {
+                            let cmd = &parts[0];
+                            let result = match cmd.as_str() {
+                                "session" => session::run(parts, &project_path),
+                                _ => {
+                                    // Ignore unknown commands for now or add to history
+                                    command_history.push(format!("Unknown command: {}", cmd));
+                                    Ok(())
+                                }
+                            };
+
+                            if let Err(e) = result {
+                                for line in e.to_string().lines() {
+                                    command_history.push(line.to_string());
+                                }
+                            } else {
+                                // コマンド実行に成功した場合のみ履歴に追加 (あるいは常に表示するかは好み)
+                                command_history.push(current_input.clone());
+                                
+                                // 状態が更新された可能性があるので再読み込みして表示を更新
+                                if let Ok(new_state) = get_project_state(&project_path) {
+                                    worktrees = vec!["main".to_string()];
+                                    worktrees.extend(new_state.worktrees.clone());
+                                    if let Some(current_wt) = &new_state.current_worktree {
+                                        if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                            selected_index = idx;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if command_history.len() > (height as usize - 7) {
                             command_history.remove(0);
                         }
                         current_input.clear();
+                    } else {
+                        is_command_mode = false;
                     }
-                    is_command_mode = false;
                 } else {
                     is_command_mode = true;
                 }

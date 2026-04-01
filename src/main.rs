@@ -24,7 +24,7 @@ enum Commands {
         #[arg(short, long)]
         branch: Option<String>,
     },
-    /// Open a workspace (interactive menu)
+    /// Open a workspace (interactive side menu)
     Open,
     /// Hop into usagi terminal
     Hop,

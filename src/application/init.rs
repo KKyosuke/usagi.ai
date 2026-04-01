@@ -11,6 +11,7 @@ use crate::application::layout;
 pub struct ProjectState {
     pub initialized: bool,
     pub worktrees: Vec<String>,
+    pub current_worktree: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -60,15 +61,22 @@ pub fn get_project_state(project_path: &Path) -> Result<ProjectState> {
     Ok(state)
 }
 
+pub fn save_project_state(project_path: &Path, state: &ProjectState) -> Result<()> {
+    let state_path = project_path.join(".usagi/state.json");
+    let content = serde_json::to_string_pretty(state).context("Failed to serialize project state")?;
+    fs::write(state_path, content).context("Failed to write project state")?;
+    Ok(())
+}
+
 pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
-    layout::show_rabbit(layout::AppMode::Menu);
+    layout::show_rabbit();
 
     let mut repos = get_repositories()?;
     let mut selected_index = 0;
     let term = Term::stdout();
 
     loop {
-        // Projects list
+        // Side menu items (Projects list)
         let mut project_items: Vec<String> = repos.iter().map(|path| {
             let config_path = path.join("usagi.config");
             let status = if !path.exists() {
@@ -82,14 +90,14 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         }).collect();
         project_items.push(format!("+ {}", style("New project").yellow().bold()));
 
-        layout::render_menu(
+        layout::render_side_menu(
             &project_items,
             selected_index,
         );
 
         let key = term.read_key().context("Failed to read key")?;
         
-        // Clear lines: menu + rabbit + header
+        // Clear lines: side menu + rabbit + header
         let lines_to_clear = project_items.len() + 3;
         term.clear_last_lines(lines_to_clear).context("Failed to clear lines")?;
 

@@ -4,7 +4,7 @@ use console::style;
 #[allow(dead_code)]
 pub enum AppMode {
     Global,
-    Menu,
+    SideMenu,
     Command,
     Execution,
 }
@@ -13,14 +13,14 @@ impl AppMode {
     pub fn label(&self) -> &str {
         match self {
             AppMode::Global => "全体モード",
-            AppMode::Menu => "メニューモード",
+            AppMode::SideMenu => "サイドメニューモード",
             AppMode::Command => "コマンドモード",
             AppMode::Execution => "実行モード",
         }
     }
 }
 
-pub fn show_rabbit(mode: AppMode) {
+pub fn show_rabbit() {
     let rabbit = r#"
 　　　　 　/ \ / \
 　　　　　(  o.o  )
@@ -30,7 +30,7 @@ pub fn show_rabbit(mode: AppMode) {
     println!("---------- USAGI AI ----------");
 }
 
-pub fn render_menu(
+pub fn render_side_menu(
     projects: &[String],
     selected_project: usize,
 ) {
