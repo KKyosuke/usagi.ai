@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
 use crate::application::layout::AppMode;
-use crate::application::command::session;
+use crate::application::command::{session, space};
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
@@ -21,7 +21,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut selected_index = 0;
     let mut current_input = String::new();
     let mut is_command_mode = false;
-    let available_commands = vec!["session", "ai", "close"];
+    let available_commands = vec!["session", "ai", "close", "space"];
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -55,16 +55,33 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
 
         // 左右分割描画
+        let current_state = get_project_state(&project_path).ok();
         for i in 0..(height as usize - 6) {
             let left_content = if i == 0 {
                 style("workspace").bold().to_string()
             } else if i - 1 < worktrees.len() {
                 let wt_idx = i - 1;
                 let wt = &worktrees[wt_idx];
-                if wt_idx == selected_index {
-                    format!("> {}", style(wt).cyan().bold())
+                
+                let is_active = if let Some(ref s) = current_state {
+                    s.current_worktree.as_deref() == Some(wt) || (wt == "main" && s.current_worktree.is_none())
                 } else {
-                    format!("  {}", wt)
+                    false
+                };
+
+                let mark_char = "●";
+                let mark_width = measure_text_width(mark_char);
+                let cursor = if wt_idx == selected_index && !is_command_mode { ">" } else { " " };
+                let mark = if is_active {
+                    style(mark_char).green().to_string()
+                } else {
+                    " ".repeat(mark_width)
+                };
+                
+                if wt_idx == selected_index {
+                    format!("{} {}  {}", cursor, mark, style(wt).cyan().bold())
+                } else {
+                    format!("{} {}  {}", cursor, mark, wt)
                 }
             } else {
                 "".to_string()
@@ -151,6 +168,14 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             let cmd = &parts[0];
                             let result = match cmd.as_str() {
                                 "session" => session::run(parts, &project_path),
+                                "space" => {
+                                    is_command_mode = false;
+                                    let mut args = parts;
+                                    if args.len() == 1 {
+                                        args.push(worktrees[selected_index].clone());
+                                    }
+                                    space::run(args, &project_path)
+                                }
                                 _ => {
                                     // Ignore unknown commands for now or add to history
                                     command_history.push(format!("Unknown command: {}", cmd));
