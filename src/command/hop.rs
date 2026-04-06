@@ -200,7 +200,22 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                     if !current_input.is_empty() {
                         let parts: Vec<String> = current_input.split_whitespace().map(|s| s.to_string()).collect();
                         if !parts.is_empty() {
-                            let cmd = &parts[0];
+                            let mut cmd_to_execute = current_input.clone();
+                            let mut parts = parts;
+
+                            // If cmd is a number, try to get from history
+                            if let Ok(index) = parts[0].parse::<usize>() {
+                                if index > 0 && index <= state.history.len() {
+                                    cmd_to_execute = state.history[index - 1].clone();
+                                    parts = cmd_to_execute.split_whitespace().map(|s| s.to_string()).collect();
+                                }
+                            }
+
+                            if parts.is_empty() {
+                                continue;
+                            }
+
+                            let cmd = parts[0].clone();
                             let result: Result<String> = match cmd.as_str() {
                                 "session" => session::run(parts, &project_path),
                                 "history" => history::run(parts, &project_path),
@@ -228,33 +243,37 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     }
                                 }
                                 Ok(output) => {
-                                    // コマンド実行に成功した場合のみ履歴に追加
-                                    command_history.push(current_input.clone());
-                                    if !output.is_empty() {
-                                        for line in output.lines() {
-                                            command_history.push(line.to_string());
+                                    if cmd == "close" {
+                                        is_command_mode = false;
+                                    } else {
+                                        // コマンド実行に成功した場合のみ履歴に追加
+                                        command_history.push(cmd_to_execute.clone());
+                                        if !output.is_empty() {
+                                            for line in output.lines() {
+                                                command_history.push(line.to_string());
+                                            }
                                         }
-                                    }
-                                    
-                                    // 状態が更新された可能性があるので再読み込みして表示を更新
-                                    if let Ok(mut new_state) = get_project_state(&project_path) {
-                                        // 履歴を永続化
-                                        if !new_state.history.contains(&current_input) {
-                                            new_state.history.push(current_input.clone());
-                                            let _ = crate::application::init::save_project_state(&project_path, &new_state);
-                                        } else {
-                                            // 既に存在する場合でも最新として扱うために順序を入れ替える等の処理は
-                                            // 今回はシンプルにするため行わないが、再取得は必要
-                                        }
+                                        
+                                        // 状態が更新された可能性があるので再読み込みして表示を更新
+                                        if let Ok(mut new_state) = get_project_state(&project_path) {
+                                            // 履歴を永続化
+                                            if !new_state.history.contains(&cmd_to_execute) {
+                                                new_state.history.push(cmd_to_execute.clone());
+                                                let _ = crate::application::init::save_project_state(&project_path, &new_state);
+                                            } else {
+                                                // 既に存在する場合でも最新として扱うために順序を入れ替える等の処理は
+                                                // 今回はシンプルにするため行わないが、再取得は必要
+                                            }
 
-                                        // 状態をローカルの state にも反映
-                                        state = new_state;
+                                            // 状態をローカルの state にも反映
+                                            state = new_state;
 
-                                        worktrees = vec!["main".to_string()];
-                                        worktrees.extend(state.worktrees.clone());
-                                        if let Some(current_wt) = &state.current_worktree {
-                                            if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
-                                                selected_index = idx;
+                                            worktrees = vec!["main".to_string()];
+                                            worktrees.extend(state.worktrees.clone());
+                                            if let Some(current_wt) = &state.current_worktree {
+                                                if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                    selected_index = idx;
+                                                }
                                             }
                                         }
                                     }
