@@ -1,6 +1,5 @@
 use anyhow::Result;
 
-pub fn run() -> Result<()> {
-    println!("close");
-    Ok(())
+pub fn run(_args: Vec<String>, _project_path: &std::path::Path) -> Result<String> {
+    Ok("close".to_string())
 }

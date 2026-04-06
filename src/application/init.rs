@@ -12,6 +12,8 @@ pub struct ProjectState {
     pub initialized: bool,
     pub worktrees: Vec<String>,
     pub current_worktree: Option<String>,
+    #[serde(default)]
+    pub history: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]

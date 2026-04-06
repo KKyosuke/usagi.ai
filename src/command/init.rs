@@ -28,6 +28,7 @@ pub fn run(repository_url: &str, directory: Option<PathBuf>, branch: Option<Stri
         initialized: true,
         worktrees: vec![],
         current_worktree: Some("main".to_string()),
+        history: vec![],
     };
     let state_json = serde_json::to_string_pretty(&state).context("Failed to serialize project state")?;
     fs::write(usagi_dir.join("state.json"), state_json).context("Failed to write state.json")?;

@@ -9,7 +9,7 @@ pub struct SpaceCli {
     pub worktree: Option<String>,
 }
 
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<()> {
+pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
     let cli = match SpaceCli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(e) => {
@@ -25,10 +25,11 @@ pub fn run(args: Vec<String>, project_path: &Path) -> Result<()> {
             if !state.worktrees.contains(&worktree) {
                 return Err(anyhow!("Worktree '{}' does not exist.", worktree));
             }
-            state.current_worktree = Some(worktree);
+            state.current_worktree = Some(worktree.clone());
         }
         save_project_state(project_path, &state)?;
+        Ok(format!("Switched to workspace '{}'", worktree))
+    } else {
+        Ok("".to_string())
     }
-
-    Ok(())
 }

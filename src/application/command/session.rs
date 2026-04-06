@@ -23,7 +23,7 @@ pub enum SessionCommands {
     },
 }
 
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<()> {
+pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
     let cli = match SessionCli::try_parse_from(args) {
         Ok(cli) => cli,
         Err(e) => {
@@ -33,7 +33,7 @@ pub fn run(args: Vec<String>, project_path: &Path) -> Result<()> {
 
     match cli.command {
         Some(SessionCommands::Start { branch, base }) => {
-            start_session(&branch, base, project_path)?;
+            start_session(&branch, base, project_path)
         }
         None => {
             let mut cmd = SessionCli::command();
@@ -41,10 +41,9 @@ pub fn run(args: Vec<String>, project_path: &Path) -> Result<()> {
             return Err(anyhow!("Usage:\n{}", help));
         }
     }
-    Ok(())
 }
 
-fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Result<()> {
+fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Result<String> {
     // 1. すでにあるブランチ名の時はエラーを表示
     if branch_exists(branch, project_path)? {
         return Err(anyhow!("Branch '{}' already exists.", branch));
@@ -87,8 +86,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
     state.current_worktree = Some(branch.to_string());
     save_project_state(project_path, &state)?;
 
-    println!("Session started: branch '{}' in '{}'", branch, worktree_path.display());
-    Ok(())
+    Ok(format!("Session started: branch '{}' in '{}'", branch, worktree_path.display()))
 }
 
 fn branch_exists(branch: &str, project_path: &Path) -> Result<bool> {

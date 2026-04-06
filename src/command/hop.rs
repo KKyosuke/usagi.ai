@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
 use crate::application::layout::{AppMode, AlternateScreenGuard};
-use crate::application::command::{session, space};
+use crate::application::command::{session, space, history, ai, close};
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
-    let state = get_project_state(&project_path)
+    let mut state = get_project_state(&project_path)
         .map_err(|_| anyhow!("Error: Not an initialized directory. Please run `usagi init` first."))?;
 
     std::env::set_current_dir(&project_path).context(format!("Failed to change directory to {}", project_path.display()))?;
@@ -22,7 +22,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut selected_index = 0;
     let mut current_input = String::new();
     let mut is_command_mode = false;
-    let available_commands = vec!["session", "ai", "close", "space"];
+    let mut history_index: Option<usize> = None;
+    let available_commands = vec!["session", "ai", "close", "space", "history"];
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -35,7 +36,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         }
     }
 
-    let mut command_history: Vec<String> = vec![];
+    let mut command_history: Vec<String> = state.history.clone();
     
     // 画面全体を一度クリア
     term.clear_screen()?;
@@ -153,18 +154,45 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         let key = term.read_key().context("Failed to read key")?;
 
         match key {
-            Key::ArrowUp if !is_command_mode => {
-                if selected_index > 0 {
-                    selected_index -= 1;
+            Key::ArrowUp => {
+                if is_command_mode {
+                    if !state.history.is_empty() {
+                        let new_index = match history_index {
+                            None => Some(state.history.len() - 1),
+                            Some(idx) if idx > 0 => Some(idx - 1),
+                            Some(_) => Some(0),
+                        };
+                        if let Some(idx) = new_index {
+                            history_index = Some(idx);
+                            current_input = state.history[idx].clone();
+                        }
+                    }
                 } else {
-                    selected_index = worktrees.len().saturating_sub(1);
+                    if selected_index > 0 {
+                        selected_index -= 1;
+                    } else {
+                        selected_index = worktrees.len().saturating_sub(1);
+                    }
                 }
             }
-            Key::ArrowDown if !is_command_mode => {
-                if selected_index < worktrees.len().saturating_sub(1) {
-                    selected_index += 1;
+            Key::ArrowDown => {
+                if is_command_mode {
+                    if let Some(idx) = history_index {
+                        if idx < state.history.len() - 1 {
+                            let next_idx = idx + 1;
+                            history_index = Some(next_idx);
+                            current_input = state.history[next_idx].clone();
+                        } else {
+                            history_index = None;
+                            current_input.clear();
+                        }
+                    }
                 } else {
-                    selected_index = 0;
+                    if selected_index < worktrees.len().saturating_sub(1) {
+                        selected_index += 1;
+                    } else {
+                        selected_index = 0;
+                    }
                 }
             }
             Key::Enter => {
@@ -173,8 +201,11 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                         let parts: Vec<String> = current_input.split_whitespace().map(|s| s.to_string()).collect();
                         if !parts.is_empty() {
                             let cmd = &parts[0];
-                            let result = match cmd.as_str() {
+                            let result: Result<String> = match cmd.as_str() {
                                 "session" => session::run(parts, &project_path),
+                                "history" => history::run(parts, &project_path),
+                                "ai" => ai::run(parts, &project_path),
+                                "close" => close::run(parts, &project_path),
                                 "space" => {
                                     is_command_mode = false;
                                     let mut args = parts;
@@ -186,25 +217,45 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                 _ => {
                                     // Ignore unknown commands for now or add to history
                                     command_history.push(format!("Unknown command: {}", cmd));
-                                    Ok(())
+                                    Ok("".to_string())
                                 }
                             };
 
-                            if let Err(e) = result {
-                                for line in e.to_string().lines() {
-                                    command_history.push(line.to_string());
+                            match result {
+                                Err(e) => {
+                                    for line in e.to_string().lines() {
+                                        command_history.push(line.to_string());
+                                    }
                                 }
-                            } else {
-                                // コマンド実行に成功した場合のみ履歴に追加 (あるいは常に表示するかは好み)
-                                command_history.push(current_input.clone());
-                                
-                                // 状態が更新された可能性があるので再読み込みして表示を更新
-                                if let Ok(new_state) = get_project_state(&project_path) {
-                                    worktrees = vec!["main".to_string()];
-                                    worktrees.extend(new_state.worktrees.clone());
-                                    if let Some(current_wt) = &new_state.current_worktree {
-                                        if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
-                                            selected_index = idx;
+                                Ok(output) => {
+                                    // コマンド実行に成功した場合のみ履歴に追加
+                                    command_history.push(current_input.clone());
+                                    if !output.is_empty() {
+                                        for line in output.lines() {
+                                            command_history.push(line.to_string());
+                                        }
+                                    }
+                                    
+                                    // 状態が更新された可能性があるので再読み込みして表示を更新
+                                    if let Ok(mut new_state) = get_project_state(&project_path) {
+                                        // 履歴を永続化
+                                        if !new_state.history.contains(&current_input) {
+                                            new_state.history.push(current_input.clone());
+                                            let _ = crate::application::init::save_project_state(&project_path, &new_state);
+                                        } else {
+                                            // 既に存在する場合でも最新として扱うために順序を入れ替える等の処理は
+                                            // 今回はシンプルにするため行わないが、再取得は必要
+                                        }
+
+                                        // 状態をローカルの state にも反映
+                                        state = new_state;
+
+                                        worktrees = vec!["main".to_string()];
+                                        worktrees.extend(state.worktrees.clone());
+                                        if let Some(current_wt) = &state.current_worktree {
+                                            if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                selected_index = idx;
+                                            }
                                         }
                                     }
                                 }
@@ -215,22 +266,28 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             command_history.remove(0);
                         }
                         current_input.clear();
+                        history_index = None;
                     } else {
                         is_command_mode = false;
+                        history_index = None;
                     }
                 } else {
                     is_command_mode = true;
+                    history_index = None;
                 }
             }
             Key::Char(c) if is_command_mode => {
                 current_input.push(c);
+                history_index = None;
             }
             Key::Backspace if is_command_mode => {
                 current_input.pop();
+                history_index = None;
             }
             Key::Escape if is_command_mode => {
                 is_command_mode = false;
                 current_input.clear();
+                history_index = None;
             }
             Key::Char('q') | Key::Escape if !is_command_mode => {
                 break;
