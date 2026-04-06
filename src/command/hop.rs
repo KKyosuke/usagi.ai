@@ -151,7 +151,15 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             term.hide_cursor()?;
         }
 
-        let key = term.read_key().context("Failed to read key")?;
+        let key = match term.read_key() {
+            Ok(k) => k,
+            Err(e) => {
+                if e.to_string().contains("read interrupted") {
+                    break;
+                }
+                return Err(anyhow::Error::from(e)).context("Failed to read key");
+            }
+        };
 
         match key {
             Key::ArrowUp => {

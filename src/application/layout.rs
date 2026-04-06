@@ -7,8 +7,17 @@ pub struct AlternateScreenGuard {
 
 impl AlternateScreenGuard {
     pub fn new(term: Term) -> Result<Self> {
-        term.write_str("\x1b[?1049h")?;
-        term.hide_cursor()?;
+        let _ = term.write_str("\x1b[?1049h");
+        let _ = term.hide_cursor();
+
+        let t = term.clone();
+        let _ = ctrlc::set_handler(move || {
+            let _ = t.write_str("\x1b[?1049l");
+            let _ = t.show_cursor();
+            let _ = t.write_line("USAGI run away .. .");
+            std::process::exit(0);
+        });
+
         Ok(Self { term })
     }
 }
@@ -17,6 +26,7 @@ impl Drop for AlternateScreenGuard {
     fn drop(&mut self) {
         let _ = self.term.write_str("\x1b[?1049l");
         let _ = self.term.show_cursor();
+        let _ = self.term.write_line("USAGI run away ( ^-^)ノ");
     }
 }
 
