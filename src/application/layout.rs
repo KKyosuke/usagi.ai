@@ -40,13 +40,36 @@ impl AppMode {
 }
 
 pub fn show_rabbit(term: &Term) {
-    let rabbit = r#"
-　　　　 　/ \ / \
-　　　　　(  o.o  )
-　　　　　  > ^ <
-    "#;
-    let _ = term.write_line(&style(rabbit).magenta().to_string());
-    let _ = term.write_line("---------- USAGI AI ----------");
+    let rabbit_lines = [
+        "  (\\(\\ ",
+        " (='-') ",
+        " o(_(\")(\")",
+    ];
+
+    let (height, width) = term.size();
+    let width = width as usize;
+    let height = height as usize;
+
+    let rabbit_height = rabbit_lines.len();
+    // ターミナルの高さの半分より少し上くらいに配置（下部にメニューなどがあるため）
+    let top_padding = if height > rabbit_height + 5 { (height - rabbit_height) / 4 } else { 1 };
+
+    for _ in 0..top_padding {
+        let _ = term.write_line("");
+    }
+
+    for line in rabbit_lines {
+        let line_len = line.chars().count();
+        let left_padding = if width > line_len { (width - line_len) / 2 } else { 0 };
+        let padded_line = format!("{}{}", " ".repeat(left_padding), line);
+        let _ = term.write_line(&style(padded_line).magenta().bold().to_string());
+    }
+
+    let _ = term.write_line("");
+    let footer = "---------- USAGI AI ----------";
+    let footer_len = footer.chars().count();
+    let footer_padding = if width > footer_len { (width - footer_len) / 2 } else { 0 };
+    let _ = term.write_line(&format!("{}{}", " ".repeat(footer_padding), footer));
 }
 
 pub fn render_side_menu(
