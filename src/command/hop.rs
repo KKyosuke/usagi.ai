@@ -74,8 +74,11 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 let mark_char = "●";
                 let mark_width = measure_text_width(mark_char);
                 let cursor = if wt_idx == selected_index && !is_command_mode { ">" } else { " " };
-                let mark = if is_active {
+                let is_selected = wt_idx == selected_index;
+                let mark = if is_selected {
                     style(mark_char).green().to_string()
+                } else if is_active {
+                    style(mark_char).dim().to_string()
                 } else {
                     " ".repeat(mark_width)
                 };
