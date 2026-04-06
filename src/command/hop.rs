@@ -2,7 +2,7 @@ use anyhow::{Result, Context, anyhow};
 use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
-use crate::application::layout::AppMode;
+use crate::application::layout::{AppMode, AlternateScreenGuard};
 use crate::application::command::{session, space};
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
@@ -18,6 +18,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
 
     // 4. TUI 画面の表示
     let term = Term::stdout();
+    let _guard = AlternateScreenGuard::new(term.clone())?;
     let mut selected_index = 0;
     let mut current_input = String::new();
     let mut is_command_mode = false;
@@ -46,6 +47,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         
         // ヘッダー表示
         term.move_cursor_to(0, 0)?;
+        term.clear_screen()?;
         let mode = if is_command_mode {
             AppMode::Command
         } else {
@@ -118,7 +120,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.write_line(&command_display)?;
 
         // 下部ヘルプ
-        term.move_cursor_to(0, height as usize - 2)?;
+        term.move_cursor_to(0, (height as usize).saturating_sub(1))?;
         let help_text = if is_command_mode {
             let suggestions: Vec<&str> = available_commands.iter()
                 .filter(|c| c.starts_with(&current_input))
@@ -133,7 +135,9 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         } else {
             style("Use Up/Down to select, Enter to type command, 'q' to quit.").dim().to_string()
         };
-        term.write_line(&format!("{:width$}", help_text, width = width as usize))?;
+        // 最終行でのスクロールを避けるため write_str を使用
+        let help_display = format!("{:width$}", help_text, width = width as usize);
+        term.write_str(&help_display)?;
 
         if is_command_mode {
             let cursor_x = left_width + 3 + measure_text_width(&current_input);
@@ -226,8 +230,6 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 current_input.clear();
             }
             Key::Char('q') | Key::Escape if !is_command_mode => {
-                term.clear_screen()?;
-                println!("Hop exited.");
                 break;
             }
             _ => {}

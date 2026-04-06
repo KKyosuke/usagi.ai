@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use directories::ProjectDirs;
 use console::{Term, Key, style};
 use inquire::Text;
-use crate::application::layout;
+use crate::application::layout::{self, AlternateScreenGuard};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProjectState {
@@ -69,13 +69,16 @@ pub fn save_project_state(project_path: &Path, state: &ProjectState) -> Result<(
 }
 
 pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
-    layout::show_rabbit();
-
     let mut repos = get_repositories()?;
     let mut selected_index = 0;
     let term = Term::stdout();
+    let _guard = AlternateScreenGuard::new(term.clone())?;
 
     loop {
+        term.move_cursor_to(0, 0)?;
+        term.clear_screen()?;
+        layout::show_rabbit(&term);
+
         // Side menu items (Projects list)
         let mut project_items: Vec<String> = repos.iter().map(|path| {
             let config_path = path.join("usagi.config");
@@ -91,16 +94,13 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         project_items.push(format!("+ {}", style("New project").yellow().bold()));
 
         layout::render_side_menu(
+            &term,
             &project_items,
             selected_index,
         );
 
         let key = term.read_key().context("Failed to read key")?;
         
-        // Clear lines: side menu + rabbit + header
-        let lines_to_clear = project_items.len() + 3;
-        term.clear_last_lines(lines_to_clear).context("Failed to clear lines")?;
-
         match key {
             Key::ArrowUp => {
                 if selected_index > 0 { selected_index -= 1; }
@@ -126,6 +126,7 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                         continue;
                     }
 
+                    drop(_guard);
                     return Ok(Some((selected_path.to_path_buf(), None)));
                 } else {
                     // New project
@@ -144,10 +145,12 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                         Some(branch)
                     };
 
+                    drop(_guard);
                     return crate::command::init::run(&repo_url, directory, branch).map(|_| None);
                 }
             }
             Key::Char('q') | Key::Escape => {
+                drop(_guard);
                 println!("Quit.");
                 return Ok(None);
             }

@@ -1,4 +1,23 @@
-use console::style;
+use console::{Term, style};
+use anyhow::Result;
+
+pub struct AlternateScreenGuard {
+    pub term: Term,
+}
+
+impl AlternateScreenGuard {
+    pub fn new(term: Term) -> Result<Self> {
+        term.write_str("\x1b[?1049h")?;
+        Ok(Self { term })
+    }
+}
+
+impl Drop for AlternateScreenGuard {
+    fn drop(&mut self) {
+        let _ = self.term.write_str("\x1b[?1049l");
+        let _ = self.term.show_cursor();
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -20,29 +39,30 @@ impl AppMode {
     }
 }
 
-pub fn show_rabbit() {
+pub fn show_rabbit(term: &Term) {
     let rabbit = r#"
 　　　　 　/ \ / \
 　　　　　(  o.o  )
 　　　　　  > ^ <
     "#;
-    println!("{}", style(rabbit).magenta());
-    println!("---------- USAGI AI ----------");
+    let _ = term.write_line(&style(rabbit).magenta().to_string());
+    let _ = term.write_line("---------- USAGI AI ----------");
 }
 
 pub fn render_side_menu(
+    term: &Term,
     projects: &[String],
     selected_project: usize,
 ) {
-    println!("Use Up/Down to select, Enter to open, 'q' to quit.");
-    println!("{}", style("PROJECTS").bold());
-    println!("{:-<60}", "");
+    let _ = term.write_line("Use Up/Down to select, Enter to open, 'q' to quit.");
+    let _ = term.write_line(&style("PROJECTS").bold().to_string());
+    let _ = term.write_line(&format!("{:-<60}", ""));
 
     for i in 0..projects.len() {
         if i == selected_project {
-            println!("> {}", style(&projects[i]).cyan().bold());
+            let _ = term.write_line(&format!("> {}", style(&projects[i]).cyan().bold()));
         } else {
-            println!("  {}", &projects[i]);
+            let _ = term.write_line(&format!("  {}", &projects[i]));
         }
     }
 }
