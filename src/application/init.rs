@@ -80,80 +80,98 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         term.move_cursor_to(0, 0)?;
         term.clear_screen()?;
         layout::show_rabbit(&term);
-
-        // Side menu items (Projects list)
-        let mut project_items: Vec<String> = repos.iter().map(|path| {
-            let config_path = path.join("usagi.config");
-            let status = if !path.exists() {
-                style("(Missing)").red()
-            } else if config_path.exists() {
-                style("(Active)").green()
-            } else {
-                style("(No config)").red()
-            };
-            format!("{} {}", path.display(), status)
-        }).collect();
-        project_items.push(format!("+ {}", style("New project").yellow().bold()));
+        
+        let menu_items = vec![
+            layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string() },
+            layout::MenuItem { icon: "".to_string(), label: "New".to_string(), key: "e".to_string() },
+            layout::MenuItem { icon: "".to_string(), label: "Config".to_string(), key: "c".to_string() },
+            layout::MenuItem { icon: "".to_string(), label: "Quit".to_string(), key: "q".to_string() },
+        ];
 
         layout::render_side_menu(
             &term,
-            &project_items,
+            &menu_items,
             selected_index,
         );
+
+        layout::render_footer(&term);
 
         let key = term.read_key().context("Failed to read key")?;
         
         match key {
             Key::ArrowUp => {
                 if selected_index > 0 { selected_index -= 1; }
-                else { selected_index = project_items.len() - 1; }
+                else { selected_index = menu_items.len() - 1; }
             }
             Key::ArrowDown => {
-                if selected_index < project_items.len() - 1 { selected_index += 1; }
+                if selected_index < menu_items.len() - 1 { selected_index += 1; }
                 else { selected_index = 0; }
             }
             Key::Enter => {
-                if selected_index < repos.len() {
-                    let selected_path = &repos[selected_index];
-                    let config_path = selected_path.join("usagi.config");
-                    
-                    if !selected_path.exists() || !config_path.exists() {
-                        if show_delete_modal(selected_path)? {
-                            repos.remove(selected_index);
-                            save_repositories(&repos)?;
-                            if selected_index >= repos.len() && !repos.is_empty() {
-                                selected_index = repos.len() - 1;
-                            }
-                        }
-                        continue;
+                if selected_index == 0 { // Open
+                    if let Some(selected_path) = show_project_list_modal(&term, &repos)? {
+                        drop(_guard);
+                        return Ok(Some((selected_path, None)));
                     }
-
+                } else if selected_index == 3 { // Quit
                     drop(_guard);
-                    return Ok(Some((selected_path.to_path_buf(), None)));
-                } else {
-                    // New project
-                    let repo_url = Text::new("Repository URL:").prompt()?;
-                    let directory = Text::new("Directory (optional):").prompt()?;
-                    let branch = Text::new("Branch (optional, leave empty for default):").prompt()?;
-
-                    let directory = if directory.is_empty() {
-                        None
-                    } else {
-                        Some(PathBuf::from(directory))
-                    };
-                    let branch = if branch.is_empty() {
-                        None
-                    } else {
-                        Some(branch)
-                    };
-
-                    drop(_guard);
-                    return crate::command::init::run(&repo_url, directory, branch).map(|_| None);
+                    println!("Quit.");
+                    return Ok(None);
                 }
             }
             Key::Char('q') | Key::Escape => {
                 drop(_guard);
                 println!("Quit.");
+                return Ok(None);
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn show_project_list_modal(term: &Term, repos: &[PathBuf]) -> Result<Option<PathBuf>> {
+    let mut selected_index = 0;
+    if repos.is_empty() {
+        return Ok(None);
+    }
+
+    loop {
+        term.clear_screen()?;
+        let (height, width) = term.size();
+        let width = width as usize;
+        
+        let title = "--- Select Project ---";
+        let title_len = title.chars().count();
+        let left_padding = if width > title_len { (width - title_len) / 2 } else { 0 };
+        term.write_line(&format!("{}{}", " ".repeat(left_padding), style(title).bold().yellow()))?;
+        term.write_line("")?;
+
+        for (i, repo) in repos.iter().enumerate() {
+            let label = repo.display().to_string();
+            let label_len = label.chars().count() + 2;
+            let left_padding = if width > label_len { (width - label_len) / 2 } else { 0 };
+            
+            if i == selected_index {
+                term.write_line(&format!("{}> {}", " ".repeat(left_padding), style(label).cyan().bold()))?;
+            } else {
+                term.write_line(&format!("{}  {}", " ".repeat(left_padding), label))?;
+            }
+        }
+
+        let key = term.read_key().context("Failed to read key")?;
+        match key {
+            Key::ArrowUp => {
+                if selected_index > 0 { selected_index -= 1; }
+                else { selected_index = repos.len() - 1; }
+            }
+            Key::ArrowDown => {
+                if selected_index < repos.len() - 1 { selected_index += 1; }
+                else { selected_index = 0; }
+            }
+            Key::Enter => {
+                return Ok(Some(repos[selected_index].clone()));
+            }
+            Key::Escape | Key::Char('q') => {
                 return Ok(None);
             }
             _ => {}

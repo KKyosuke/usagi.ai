@@ -8,6 +8,7 @@ pub struct AlternateScreenGuard {
 impl AlternateScreenGuard {
     pub fn new(term: Term) -> Result<Self> {
         term.write_str("\x1b[?1049h")?;
+        term.hide_cursor()?;
         Ok(Self { term })
     }
 }
@@ -40,25 +41,28 @@ impl AppMode {
 }
 
 pub fn show_rabbit(term: &Term) {
-    let rabbit_lines = [
+    let character_lines = [
         "  (\\(\\ ",
         " (='-') ",
         " o(_(\")(\")",
+    ];
+
+    let message_lines = [
+        "USAGI AI",
     ];
 
     let (height, width) = term.size();
     let width = width as usize;
     let height = height as usize;
 
-    let rabbit_height = rabbit_lines.len();
-    // ターミナルの高さの半分より少し上くらいに配置（下部にメニューなどがあるため）
-    let top_padding = if height > rabbit_height + 5 { (height - rabbit_height) / 4 } else { 1 };
+    let total_height = character_lines.len() + message_lines.len() + 2; // +2 for spacing
+    let top_padding = if height > total_height + 10 { (height - total_height) / 4 } else { 1 };
 
     for _ in 0..top_padding {
         let _ = term.write_line("");
     }
 
-    for line in rabbit_lines {
+    for line in character_lines {
         let line_len = line.chars().count();
         let left_padding = if width > line_len { (width - line_len) / 2 } else { 0 };
         let padded_line = format!("{}{}", " ".repeat(left_padding), line);
@@ -66,26 +70,77 @@ pub fn show_rabbit(term: &Term) {
     }
 
     let _ = term.write_line("");
-    let footer = "---------- USAGI AI ----------";
-    let footer_len = footer.chars().count();
-    let footer_padding = if width > footer_len { (width - footer_len) / 2 } else { 0 };
-    let _ = term.write_line(&format!("{}{}", " ".repeat(footer_padding), footer));
+
+    for line in message_lines {
+        let line_len = line.chars().count();
+        let left_padding = if width > line_len { (width - line_len) / 2 } else { 0 };
+        let padded_line = format!("{}{}", " ".repeat(left_padding), line);
+        let _ = term.write_line(&style(padded_line).green().bold().to_string());
+    }
 }
 
 pub fn render_side_menu(
     term: &Term,
-    projects: &[String],
-    selected_project: usize,
+    items: &[MenuItem],
+    selected_index: usize,
 ) {
-    let _ = term.write_line("Use Up/Down to select, Enter to open, 'q' to quit.");
-    let _ = term.write_line(&style("PROJECTS").bold().to_string());
-    let _ = term.write_line(&format!("{:-<60}", ""));
+    let (height, width) = term.size();
+    let width = width as usize;
+    
+    let _ = term.write_line("");
 
-    for i in 0..projects.len() {
-        if i == selected_project {
-            let _ = term.write_line(&format!("> {}", style(&projects[i]).cyan().bold()));
+    for (i, item) in items.iter().enumerate() {
+        let prefix = if i == selected_index {
+            style(&item.icon).red().bold().to_string()
         } else {
-            let _ = term.write_line(&format!("  {}", &projects[i]));
-        }
+            style(&item.icon).yellow().to_string()
+        };
+
+        let label = &item.label;
+        let key = &item.key;
+
+        // メニューの各行を中央揃えにするための計算
+        // アイコン(2) + スペース(1) + ラベル(10程度) + スペース(10) + キー(1)
+        // ここでは固定幅のメニューを想定して中央寄せする
+        let menu_width = 30; 
+        let left_padding = if width > menu_width { (width - menu_width) / 2 } else { 0 };
+        
+        // アイコンとラベルの間にカーソル（赤い四角）を入れるNeovim風演出
+        let cursor = if i == selected_index {
+            style(" ").bg(console::Color::Red).to_string()
+        } else {
+            " ".to_string()
+        };
+
+        let line = format!("{}{} {} {:<10} {:>5}", 
+            " ".repeat(left_padding),
+            prefix,
+            cursor,
+            label,
+            key
+        );
+        let _ = term.write_line(&line);
+        let _ = term.write_line(""); // 行間の空き
     }
+}
+
+pub fn render_footer(term: &Term) {
+    let version = env!("CARGO_PKG_VERSION");
+    let footer = format!(" v{} ⚡ plugins 4/55 in 23.885ms", version);
+    let (height, width) = term.size();
+    let width = width as usize;
+    let height = height as usize;
+
+    let footer_len = footer.chars().count();
+    let left_padding = if width > footer_len { (width - footer_len) / 2 } else { 0 };
+    
+    // 下部に配置するための調整（簡易的）
+    let _ = term.write_line("");
+    let _ = term.write_line(&format!("{}{}", " ".repeat(left_padding), style(footer).dim()));
+}
+
+pub struct MenuItem {
+    pub icon: String,
+    pub label: String,
+    pub key: String,
 }
