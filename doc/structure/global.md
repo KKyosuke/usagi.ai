@@ -1,14 +1,17 @@
-# グローバルなプロジェクト情報管理
+# グローバルなプロジェクト情報管理（共通DB）
 
-`register_project` 関数によって保存される情報は、システム全体で `usagi` プロジェクトを追跡するために使用されます。
+`usagi` は、システム全体で初期化済みプロジェクトを追跡するためのグローバルなレジストリを持ちます。
+このレジストリは `usagi open` でプロジェクト一覧を表示する際に利用されます。
 
 ## 保存場所
 
-OSごとのユーザーデータディレクトリに保存されます。
+OS ごとのユーザーデータディレクトリに保存されます。
 
-- **macOS**: `~/Library/Application Support/usagi`
-- **Linux**: `~/.local/share/usagi` (または `$XDG_DATA_HOME/usagi`)
-- **Windows**: `C:\Users\<User>\AppData\Roaming\usagi\data`
+| OS | パス |
+|---|---|
+| macOS | `~/Library/Application Support/usagi/` |
+| Linux | `~/.local/share/usagi/` （または `$XDG_DATA_HOME/usagi/`） |
+| Windows | `C:\Users\<User>\AppData\Roaming\usagi\data\` |
 
 ## 保存ファイル
 
@@ -17,15 +20,13 @@ OSごとのユーザーデータディレクトリに保存されます。
 
 ## データ構造
 
-保存されるデータは、`Repositories` 構造体として定義されています。
-
 ```rust
 struct Repositories {
     repositories: Vec<PathBuf>,
 }
 ```
 
-実際の JSON 形式は以下のようになります。
+JSON 形式:
 
 ```json
 {
@@ -36,9 +37,30 @@ struct Repositories {
 }
 ```
 
-## 保存される内容の詳細
+## フィールド説明
 
-- **repositories**: 
-  - `usagi init` が実行されたプロジェクトのルートディレクトリの絶対パスのリスト。
-  - プロジェクトが新しく初期化されるたびに、そのディレクトリが既になければ追加されます。
-  - このリストにより、ツールはシステム上のどこに `usagi` プロジェクトが存在するかを把握できます。
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `repositories` | `Vec<String>` | `usagi init` で初期化されたプロジェクトのルートディレクトリの絶対パス一覧 |
+
+## 登録のタイミング
+
+`usagi init` が成功すると、初期化したディレクトリのパスが自動的に `repositories.json` に追記されます。
+既に同じパスが登録されている場合は重複して追加されません。
+
+```mermaid
+flowchart LR
+    A[usagi init] --> B[グローバルレジストリを読み込む]
+    B --> C{パスが既に登録済み?}
+    C -- Yes --> D[何もしない]
+    C -- No --> E[パスを追記して保存]
+```
+
+## 参照のタイミング
+
+`usagi open` でプロジェクト一覧を表示する際に、このファイルが読み込まれます。
+
+## 関連ドキュメント
+
+- [`usagi init`](../cli/init.md)
+- [`usagi open`](../cli/open.md)

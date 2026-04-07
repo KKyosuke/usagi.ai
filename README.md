@@ -25,7 +25,7 @@ Initialize a repository with:
 usagi init <repository-url>
 ```
 
-For more details on initialization, see [doc/init.md](doc/command/init.md).
+For more details on initialization, see [doc/cli/init.md](doc/cli/init.md).
 
 
 ## Project Structure

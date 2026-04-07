@@ -1,30 +1,78 @@
-# Project Directory Structure
+# 初期化後のディレクトリ構造
 
-When a project is initialized using `usagi init`, the following directory structure is created in the project root:
+`usagi init` を実行すると、以下のディレクトリ構造が作成されます。
 
-## Overview
+## ディレクトリ構造
 
 ```text
-.
-├── .usagi/             # Internal management directory (used by usagi.ai)
-│   └── state.json      # Internal state file (initialization flag, worktrees list, etc.)
-├── main/               # The primary working directory where the repository is cloned
-├── usagi.config        # Project configuration file (e.g., repository URL)
-└── .gitignore          # Updated to ignore the .usagi/ management directory
+<project-root>/
+├── .usagi/                  # usagi.ai の内部管理ディレクトリ（手動編集不要）
+│   └── state.json           # プロジェクト状態（初期化フラグ・worktree一覧・履歴など）
+├── main/                    # クローンされたリポジトリ（メイン worktree）
+├── usagi.config             # プロジェクト設定ファイル（リポジトリURLなど）
+└── .gitignore               # .usagi/ を無視する設定が追記される
 ```
 
-## Component Details
+`session start` でセッションを追加すると、`main/` と並列に worktree ディレクトリが追加されます：
+
+```text
+<project-root>/
+├── .usagi/
+│   └── state.json
+├── main/                    # メイン worktree
+├── my-feature/              # session start my-feature で作成された worktree
+├── hotfix/                  # session start hotfix で作成された worktree
+├── usagi.config
+└── .gitignore
+```
+
+## ファイル・ディレクトリの説明
 
 ### `.usagi/`
-A hidden directory that stores internal state and data for the `usagi.ai` tool. This directory is not meant to be modified manually by users.
 
-- **`state.json`**: This file tracks the project's current state, including whether it has been initialized (`initialized: true`) and a list of worktrees that have been created within the project.
+`usagi.ai` がプロジェクトの管理状態を保持するための隠しディレクトリです。
+手動での編集は不要です。`.gitignore` によって Git の管理対象から除外されます。
+
+#### `.usagi/state.json`
+
+プロジェクトの状態を管理する JSON ファイルです。
+
+```json
+{
+  "initialized": true,
+  "worktrees": ["my-feature", "hotfix"],
+  "current_worktree": "my-feature",
+  "history": [
+    "session start my-feature",
+    "space my-feature"
+  ]
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `initialized` | `bool` | プロジェクトが初期化済みかどうか |
+| `worktrees` | `Vec<String>` | 作成された worktree 名の一覧（`main` は含まない） |
+| `current_worktree` | `String \| null` | 現在アクティブな worktree 名（`main` の場合は `null`） |
+| `history` | `Vec<String>` | TUI コマンドの実行履歴 |
 
 ### `main/`
-The main working directory of the project. When `usagi init` is executed, the target Git repository is cloned into this directory. This serves as the primary location for your AI-assisted development tasks.
+
+指定したリポジトリがクローンされるメインの作業ディレクトリです。
+ディレクトリ名はデフォルトブランチ名から生成されます（`/` は `-` に変換）。
 
 ### `usagi.config`
-A configuration file for the project. It stores project-specific settings, such as the `repository_url`. This file can be viewed and edited by users to configure the project's behavior.
+
+ユーザーが参照・編集できる設定ファイルです。
+初期状態では `usagi init` 時に指定したリポジトリの URL が記録されます。
 
 ### `.gitignore`
-The project's `.gitignore` file is automatically updated during initialization to include `.usagi/`. This ensures that the tool's internal management files are not tracked by Git. If a `.gitignore` file already exists, the entry is appended; otherwise, a new file is created.
+
+`.usagi/` ディレクトリを Git の管理対象から除外するための設定が追記されます。
+既存の `.gitignore` がある場合は追記され、ない場合は新規作成されます。
+
+## 関連ドキュメント
+
+- [`usagi init` コマンド](../cli/init.md)
+- [`session` コマンド](../tui/session.md)
+- [グローバルDB（共通リポジトリ管理）](./global.md)
