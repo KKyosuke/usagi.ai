@@ -22,6 +22,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let _guard = AlternateScreenGuard::new(term.clone())?;
     let mut selected_index = 0;
     let mut current_input = String::new();
+    let mut cursor_pos = 0;
     let mut is_command_mode = false;
     let mut history_index: Option<usize> = None;
     let commands = commands::get_commands();
@@ -139,7 +140,6 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         if is_command_mode {
             let parts: Vec<&str> = current_input.split_whitespace().collect();
             let mut suggestions: Vec<(String, String)> = Vec::new();
-            let mut popup_x = left_width + 3;
             let mut usage_text: Option<String> = None;
 
             if !current_input.contains(' ') {
@@ -201,48 +201,40 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                         usage_text = command.usage(&parts);
                     }
                     suggestions = current_suggestions;
-                    
-                    // 表示位置を入力中の単語の開始位置に合わせる
-                    let input_before_last = if current_input.ends_with(' ') {
-                        &current_input
-                    } else {
-                        current_input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
-                    };
-                    popup_x += measure_text_width(input_before_last);
-                    if !input_before_last.is_empty() && !input_before_last.ends_with(' ') {
-                        popup_x += 1;
-                    }
                 }
             }
             
             let mut offset = 5;
-            if let Some(usage) = usage_text {
+            let popup_x = left_width + 3; // | の右側
+            let popup_width = (width as usize).saturating_sub(popup_x);
+
+            if let Some(usage) = &usage_text {
                 let lines: Vec<&str> = usage.lines().collect();
                 for (i, line) in lines.iter().rev().enumerate() {
                     let y = (height as usize).saturating_sub(offset + i);
-                    term.move_cursor_to(0, y)?;
-                    let display_line = format!("{:<width$}", line, width = width as usize);
+                    term.move_cursor_to(popup_x, y)?;
+                    let display_line = format!("{:<width$}", line, width = popup_width);
                     term.write_str(&style(display_line).black().on_white().to_string())?;
                 }
                 offset += lines.len();
             }
 
-            if !suggestions.is_empty() {
-                let popup_width = 60.min((width as usize).saturating_sub(popup_x).saturating_sub(1));
+            if !suggestions.is_empty() && usage_text.is_none() {
                 let max_suggestions = 10;
                 let display_count = suggestions.len().min(max_suggestions);
                 
                 for (idx, (name, desc)) in suggestions.iter().take(display_count).enumerate() {
                     let y = (height as usize).saturating_sub(offset + (display_count - 1 - idx));
                     term.move_cursor_to(popup_x, y)?;
-                    let content = format!(" {:<10} | {:<width$} ", name, desc, width = popup_width.saturating_sub(15));
+                    let content = format!("{:<10} | {:<width$}", name, desc, width = popup_width.saturating_sub(13));
                     term.write_str(&style(content).black().on_white().to_string())?;
                 }
             }
         }
 
         if is_command_mode {
-            let cursor_x = left_width + 3 + measure_text_width(&current_input);
+            let input_prefix: String = current_input.chars().take(cursor_pos).collect();
+            let cursor_x = left_width + 3 + measure_text_width(&input_prefix);
             term.move_cursor_to(cursor_x, height as usize - 3)?;
             term.show_cursor()?;
         } else {
@@ -266,6 +258,16 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         };
 
         match key {
+            Key::ArrowLeft if is_command_mode => {
+                if cursor_pos > 0 {
+                    cursor_pos -= 1;
+                }
+            }
+            Key::ArrowRight if is_command_mode => {
+                if cursor_pos < current_input.chars().count() {
+                    cursor_pos += 1;
+                }
+            }
             Key::ArrowUp => {
                 if is_command_mode {
                     if !state.history.is_empty() {
@@ -277,6 +279,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                         if let Some(idx) = new_index {
                             history_index = Some(idx);
                             current_input = state.history[idx].clone();
+                            cursor_pos = current_input.chars().count();
                         }
                     }
                 } else {
@@ -294,9 +297,11 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             let next_idx = idx + 1;
                             history_index = Some(next_idx);
                             current_input = state.history[next_idx].clone();
+                            cursor_pos = current_input.chars().count();
                         } else {
                             history_index = None;
                             current_input.clear();
+                            cursor_pos = 0;
                         }
                     }
                 } else {
@@ -328,6 +333,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             }
 
                             let cmd_name = parts[0].clone();
+                            let is_session_close = cmd_name == "session" && parts.get(1).map(|s| s.as_str()) == Some("close");
                             let result: Result<String> = if let Some(command) = commands.iter().find(|c| c.name() == cmd_name) {
                                 if cmd_name == "space" {
                                     is_command_mode = false;
@@ -350,8 +356,21 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     }
                                 }
                                 Ok(output) => {
-                                    if cmd_name == "close" {
+                                    if cmd_name == "close" || is_session_close {
                                         is_command_mode = false;
+                                        // 状態を再読み込み
+                                        if let Ok(new_state) = get_project_state(&project_path) {
+                                            state = new_state;
+                                            worktrees = vec!["main".to_string()];
+                                            worktrees.extend(state.worktrees.clone());
+                                            if let Some(current_wt) = &state.current_worktree {
+                                                if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                    selected_index = idx;
+                                                }
+                                            } else {
+                                                selected_index = 0; // main を選択
+                                            }
+                                        }
                                     } else {
                                         // コマンド実行に成功した場合のみ履歴に追加
                                         command_history.push(cmd_to_execute.clone());
@@ -392,18 +411,23 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             command_history.remove(0);
                         }
                         current_input.clear();
+                        cursor_pos = 0;
                         history_index = None;
                     } else {
                         is_command_mode = false;
+                        cursor_pos = 0;
                         history_index = None;
                     }
                 } else {
                     is_command_mode = true;
+                    cursor_pos = 0;
                     history_index = None;
                 }
             }
             Key::Char(c) if is_command_mode => {
-                current_input.push(c);
+                let byte_offset: usize = current_input.chars().take(cursor_pos).map(|c| c.len_utf8()).sum();
+                current_input.insert(byte_offset, c);
+                cursor_pos += 1;
                 history_index = None;
             }
             Key::Tab if is_command_mode => {
@@ -416,6 +440,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                         .collect();
                     if let Some(first) = suggestions.first() {
                         current_input = first.to_string();
+                        cursor_pos = current_input.chars().count();
                     }
                 } else if !parts.is_empty() {
                     // 引数の補完
@@ -434,17 +459,23 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                             } else {
                                 current_input = format!("{} {}", head, name);
                             }
+                            cursor_pos = current_input.chars().count();
                         }
                     }
                 }
             }
             Key::Backspace if is_command_mode => {
-                current_input.pop();
+                if cursor_pos > 0 {
+                    let byte_offset: usize = current_input.chars().take(cursor_pos - 1).map(|c| c.len_utf8()).sum();
+                    current_input.remove(byte_offset);
+                    cursor_pos -= 1;
+                }
                 history_index = None;
             }
             Key::Escape if is_command_mode => {
                 is_command_mode = false;
                 current_input.clear();
+                cursor_pos = 0;
                 history_index = None;
             }
             Key::Char('q') | Key::Escape if !is_command_mode => {

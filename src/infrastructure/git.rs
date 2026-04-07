@@ -37,6 +37,40 @@ pub fn create_worktree(
     Ok(())
 }
 
+/// Removes a git worktree at `worktree_path`.
+pub fn remove_worktree(project_path: &Path, worktree_path: &Path) -> Result<()> {
+    let status = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(project_path.join("main"))
+        .arg("worktree")
+        .arg("remove")
+        .arg(worktree_path)
+        .status()
+        .context("Failed to execute git worktree remove")?;
+
+    if !status.success() {
+        return Err(anyhow!("git worktree remove failed."));
+    }
+    Ok(())
+}
+
+/// Deletes a git branch.
+pub fn delete_branch(project_path: &Path, branch: &str) -> Result<()> {
+    let status = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(project_path.join("main"))
+        .arg("branch")
+        .arg("-D")
+        .arg(branch)
+        .status()
+        .context("Failed to execute git branch -D")?;
+
+    if !status.success() {
+        return Err(anyhow!("git branch -D failed."));
+    }
+    Ok(())
+}
+
 /// Returns `true` if `branch` already exists in the repository under `project_path/main`.
 pub fn branch_exists(branch: &str, project_path: &Path) -> Result<bool> {
     let output = ProcessCommand::new("git")

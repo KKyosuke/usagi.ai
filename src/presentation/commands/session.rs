@@ -11,7 +11,8 @@ const NAME: &str = "session";
 const DESCRIPTION: &str = "Manage sessions";
 const HELP: &str = "Manages sessions (new working branches and worktrees).
 Usage: session start <branch_name> [--base <base_branch>]
-Creates a new branch and sets up a corresponding Git worktree.";
+       session close <branch_name> [--delete-branch]
+Creates a new branch and sets up a corresponding Git worktree, or closes and removes an existing one.";
 
 impl Command for SessionCommand {
     fn name(&self) -> &str {
@@ -37,6 +38,9 @@ impl Command for SessionCommand {
         match cli.command {
             Some(SessionCommands::Start { branch, base }) => {
                 start_session(&branch, base, project_path)
+            }
+            Some(SessionCommands::Close { branch, delete_branch }) => {
+                close_session(&branch, delete_branch, project_path)
             }
             None => {
                 let mut cmd = SessionCli::command();
@@ -69,10 +73,10 @@ impl Command for SessionCommand {
             }
         }
         Some("Usage: session [COMMAND]
-                          |
-                          | Commands:
-                          |   start  Start a new session
-                          |   help   Print this message or the help of the given subcommand(s)".to_string())
+Commands:
+  start  Start a new session
+  close  Close a session
+  help   Print this message or the help of the given subcommand(s)".to_string())
     }
 }
 
@@ -92,6 +96,14 @@ pub enum SessionCommands {
         /// Base branch (optional, default: origin default branch)
         #[arg(short, long)]
         base: Option<String>,
+    },
+    /// Close a session
+    Close {
+        /// Branch name
+        branch: String,
+        /// Delete the branch as well
+        #[arg(short, long)]
+        delete_branch: bool,
     },
 }
 
@@ -120,4 +132,33 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
     save_project_state(project_path, &state)?;
 
     Ok(format!("Session started: branch '{}' in '{}'", branch, worktree_path.display()))
+}
+
+fn close_session(branch: &str, delete_branch: bool, project_path: &Path) -> Result<String> {
+    let mut state = get_project_state(project_path)?;
+
+    if !state.worktrees.contains(&branch.to_string()) {
+        return Err(anyhow!("Session '{}' not found in project state.", branch));
+    }
+
+    let worktree_path = project_path.join(branch);
+    if worktree_path.exists() {
+        git::remove_worktree(project_path, &worktree_path)?;
+    }
+
+    if delete_branch {
+        git::delete_branch(project_path, branch)?;
+    }
+
+    state.worktrees.retain(|w| w != branch);
+    if state.current_worktree.as_deref() == Some(branch) {
+        state.current_worktree = state.worktrees.first().cloned();
+    }
+    save_project_state(project_path, &state)?;
+
+    let mut msg = format!("Session closed: branch '{}' removed", branch);
+    if delete_branch {
+        msg.push_str(" and deleted");
+    }
+    Ok(msg)
 }
