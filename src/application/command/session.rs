@@ -1,8 +1,47 @@
 use anyhow::{Result, Context, anyhow};
-use std::process::Command;
+use std::process::Command as ProcessCommand;
 use std::path::Path;
 use clap::{Parser, Subcommand, CommandFactory};
 use crate::application::init::{get_project_state, save_project_state};
+use super::Command;
+
+pub struct SessionCommand;
+
+impl Command for SessionCommand {
+    fn name(&self) -> &str {
+        "session"
+    }
+
+    fn description(&self) -> &str {
+        "セッションを管理する"
+    }
+
+    fn help(&self) -> &str {
+        "セッション（新しい作業ブランチとワークツリー）を管理します。
+使用法: session start <branch_name> [--base <base_branch>]
+新しいブランチを作成し、対応するGitワークツリーをセットアップします。"
+    }
+
+    fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {
+        let cli = match SessionCli::try_parse_from(args) {
+            Ok(cli) => cli,
+            Err(e) => {
+                return Err(anyhow!("{}", e));
+            }
+        };
+
+        match cli.command {
+            Some(SessionCommands::Start { branch, base }) => {
+                start_session(&branch, base, project_path)
+            }
+            None => {
+                let mut cmd = SessionCli::command();
+                let help = cmd.render_help().to_string();
+                return Err(anyhow!("Usage:\n{}", help));
+            }
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "session")]
@@ -24,23 +63,7 @@ pub enum SessionCommands {
 }
 
 pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
-    let cli = match SessionCli::try_parse_from(args) {
-        Ok(cli) => cli,
-        Err(e) => {
-            return Err(anyhow!("{}", e));
-        }
-    };
-
-    match cli.command {
-        Some(SessionCommands::Start { branch, base }) => {
-            start_session(&branch, base, project_path)
-        }
-        None => {
-            let mut cmd = SessionCli::command();
-            let help = cmd.render_help().to_string();
-            return Err(anyhow!("Usage:\n{}", help));
-        }
-    }
+    SessionCommand.run(args, project_path)
 }
 
 fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Result<String> {
@@ -62,7 +85,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
         return Err(anyhow!("Directory '{}' already exists.", worktree_path.display()));
     }
 
-    let status = Command::new("git")
+    let status = ProcessCommand::new("git")
         .arg("-C")
         .arg(project_path.join("main"))
         .arg("worktree")
@@ -90,7 +113,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
 }
 
 fn branch_exists(branch: &str, project_path: &Path) -> Result<bool> {
-    let output = Command::new("git")
+    let output = ProcessCommand::new("git")
         .arg("-C")
         .arg(project_path.join("main"))
         .arg("branch")
@@ -104,7 +127,7 @@ fn branch_exists(branch: &str, project_path: &Path) -> Result<bool> {
 }
 
 fn get_default_branch(project_path: &Path) -> Result<String> {
-    let output = Command::new("git")
+    let output = ProcessCommand::new("git")
         .arg("-C")
         .arg(project_path.join("main"))
         .arg("symbolic-ref")

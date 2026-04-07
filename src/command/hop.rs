@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
 use crate::application::init::get_project_state;
 use crate::application::layout::{AppMode, AlternateScreenGuard};
-use crate::application::command::{session, space, history, ai, close};
+use crate::application::command::{self, Command};
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
@@ -23,7 +23,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut current_input = String::new();
     let mut is_command_mode = false;
     let mut history_index: Option<usize> = None;
-    let available_commands = vec!["session", "ai", "close", "space", "history"];
+    let commands = command::get_commands();
+    let available_commands: Vec<String> = commands.iter().map(|c| c.name().to_string()).collect();
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -126,22 +127,34 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         // 下部ヘルプ
         term.move_cursor_to(0, (height as usize).saturating_sub(1))?;
         let help_text = if is_command_mode {
-            let suggestions: Vec<&str> = available_commands.iter()
-                .filter(|c| c.starts_with(&current_input))
-                .cloned()
-                .collect();
-            let suggestion_text = if suggestions.is_empty() {
-                "".to_string()
-            } else {
-                format!(" (Suggestions: {})", suggestions.join(", "))
-            };
-            format!("Enter: execute, Escape: cancel, Type to command...{}", style(suggestion_text).yellow())
+            style("Enter: execute, Escape: cancel, Tab: select suggestion, Type to command...").dim().to_string()
         } else {
             style("Use Up/Down to select, Enter to type command, 'q' to quit.").dim().to_string()
         };
         // 最終行でのスクロールを避けるため write_str を使用
         let help_display = format!("{:width$}", help_text, width = width as usize);
         term.write_str(&help_display)?;
+
+        // コマンドモードのポップアップ表示
+        if is_command_mode && !current_input.is_empty() {
+            let suggestions: Vec<&String> = available_commands.iter()
+                .filter(|c| c.starts_with(&current_input))
+                .collect();
+            
+            if !suggestions.is_empty() {
+                let popup_x = left_width + 3;
+                let popup_width = 30;
+                let max_suggestions = 5;
+                let display_count = suggestions.len().min(max_suggestions);
+                
+                for (idx, suggestion) in suggestions.iter().take(display_count).enumerate() {
+                    let y = (height as usize).saturating_sub(5 + idx);
+                    term.move_cursor_to(popup_x, y)?;
+                    let content = format!(" {:<width$} ", suggestion, width = popup_width - 2);
+                    term.write_str(&style(content).black().on_white().to_string())?;
+                }
+            }
+        }
 
         if is_command_mode {
             let cursor_x = left_width + 3 + measure_text_width(&current_input);
@@ -223,25 +236,20 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                 continue;
                             }
 
-                            let cmd = parts[0].clone();
-                            let result: Result<String> = match cmd.as_str() {
-                                "session" => session::run(parts, &project_path),
-                                "history" => history::run(parts, &project_path),
-                                "ai" => ai::run(parts, &project_path),
-                                "close" => close::run(parts, &project_path),
-                                "space" => {
+                            let cmd_name = parts[0].clone();
+                            let result: Result<String> = if let Some(command) = commands.iter().find(|c| c.name() == cmd_name) {
+                                if cmd_name == "space" {
                                     is_command_mode = false;
-                                    let mut args = parts;
-                                    if args.len() == 1 {
-                                        args.push(worktrees[selected_index].clone());
+                                    if parts.len() == 1 {
+                                        parts.push(worktrees[selected_index].clone());
                                     }
-                                    space::run(args, &project_path)
                                 }
-                                _ => {
-                                    // Ignore unknown commands for now or add to history
-                                    command_history.push(format!("Unknown command: {}", cmd));
-                                    Ok("".to_string())
-                                }
+                                command.run(parts, &project_path)
+                            } else {
+                                let available: Vec<String> = commands.iter().map(|c| c.name().to_string()).collect();
+                                command_history.push(format!("Unknown command: {}", cmd_name));
+                                command_history.push(format!("Available commands: {}", available.join(", ")));
+                                Ok("".to_string())
                             };
 
                             match result {
@@ -251,7 +259,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     }
                                 }
                                 Ok(output) => {
-                                    if cmd == "close" {
+                                    if cmd_name == "close" {
                                         is_command_mode = false;
                                     } else {
                                         // コマンド実行に成功した場合のみ履歴に追加
@@ -306,6 +314,14 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             Key::Char(c) if is_command_mode => {
                 current_input.push(c);
                 history_index = None;
+            }
+            Key::Tab if is_command_mode => {
+                let suggestions: Vec<&String> = available_commands.iter()
+                    .filter(|c| c.starts_with(&current_input))
+                    .collect();
+                if let Some(first) = suggestions.first() {
+                    current_input = first.to_string();
+                }
             }
             Key::Backspace if is_command_mode => {
                 current_input.pop();
