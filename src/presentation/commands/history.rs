@@ -1,8 +1,8 @@
 
 use anyhow::Result;
 use std::path::Path;
-use crate::application::init::get_project_state;
-use super::Command;
+use crate::infrastructure::project_state::get_project_state;
+use crate::presentation::commands::Command;
 
 pub struct HistoryCommand;
 
@@ -32,7 +32,7 @@ impl Command for HistoryCommand {
     fn run(&self, _args: Vec<String>, project_path: &Path) -> Result<String> {
         let state = get_project_state(project_path)?;
         let mut output = String::new();
-        
+
         if state.history.is_empty() {
             output.push_str("No history found.");
         } else {
@@ -40,11 +40,7 @@ impl Command for HistoryCommand {
                 output.push_str(&format!("{:4} {}\n", i + 1, entry));
             }
         }
-        
+
         Ok(output)
     }
-}
-
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
-    HistoryCommand.run(args, project_path)
 }

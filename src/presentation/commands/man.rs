@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::path::Path;
-use super::{Command, get_commands};
+use crate::presentation::commands::{Command, get_commands};
 
 pub struct ManCommand;
 
@@ -38,7 +38,12 @@ impl Command for ManCommand {
         if args.len() > 1 {
             let cmd_name = &args[1];
             if let Some(cmd) = commands.iter().find(|c| c.name() == cmd_name) {
-                return Ok(format!("Command: {}\nDescription: {}\nHelp:\n{}", cmd.name(), cmd.description(), cmd.help()));
+                return Ok(format!(
+                    "Command: {}\nDescription: {}\nHelp:\n{}",
+                    cmd.name(),
+                    cmd.description(),
+                    cmd.help()
+                ));
             } else {
                 return Ok(format!("Command '{}' not found.", cmd_name));
             }
@@ -51,8 +56,4 @@ impl Command for ManCommand {
         output.push_str("\nYou can show detailed help with 'man <command>'.");
         Ok(output)
     }
-}
-
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
-    ManCommand.run(args, project_path)
 }

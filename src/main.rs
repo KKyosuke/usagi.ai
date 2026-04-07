@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 
-mod command;
-mod application;
+mod domain;
+mod infrastructure;
+mod usecase;
+mod presentation;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -36,14 +38,14 @@ fn main() -> Result<()> {
     match &cli.command {
         Some(Commands::Init { repository_url, directory, branch }) => {
             let directory = directory.as_ref().map(std::path::PathBuf::from);
-            command::init::run(repository_url, directory, branch.clone())?;
+            presentation::cli::init::run(repository_url, directory, branch.clone())?;
         }
         Some(Commands::Hop) => {
             let current_dir = std::env::current_dir()?;
-            command::hop::run(current_dir, None)?;
+            presentation::cli::hop::run(current_dir, None)?;
         }
         Some(Commands::Open) | None => {
-            command::open::run()?;
+            presentation::cli::open::run()?;
         }
     }
 

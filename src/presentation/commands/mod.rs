@@ -8,6 +8,7 @@ pub mod man;
 pub mod session;
 pub mod space;
 
+/// Interface that every TUI command must implement.
 pub trait Command: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
@@ -21,6 +22,7 @@ pub trait Command: Send + Sync {
     }
 }
 
+/// Returns all built-in TUI commands.
 pub fn get_commands() -> Vec<Box<dyn Command>> {
     vec![
         Box::new(ai::AiCommand),
