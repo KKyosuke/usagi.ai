@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use std::path::Path;
 use clap::{Parser, Subcommand, CommandFactory};
-use crate::infrastructure::persistence::{get_project_state, save_project_state};
+use crate::infrastructure::project_state::{get_project_state, save_project_state};
 use crate::infrastructure::git;
 use crate::presentation::commands::Command;
 

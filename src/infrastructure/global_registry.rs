@@ -1,8 +1,8 @@
 use anyhow::{Result, Context, anyhow};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use directories::ProjectDirs;
-use crate::domain::project::{ProjectState, Repositories};
+use crate::domain::project::Repositories;
 
 /// Returns the path to the usagi application data directory.
 fn data_dir() -> Result<PathBuf> {
@@ -11,7 +11,7 @@ fn data_dir() -> Result<PathBuf> {
     Ok(proj_dirs.data_dir().to_path_buf())
 }
 
-/// Reads the list of registered repositories.
+/// Reads the list of registered repositories from the global usagi data directory.
 pub fn get_repositories() -> Result<Vec<PathBuf>> {
     let repo_json_path = data_dir()?.join("repositories.json");
 
@@ -26,7 +26,7 @@ pub fn get_repositories() -> Result<Vec<PathBuf>> {
     }
 }
 
-/// Persists the list of registered repositories.
+/// Persists the list of registered repositories to the global usagi data directory.
 pub fn save_repositories(repos: &[PathBuf]) -> Result<()> {
     let dir = data_dir()?;
     fs::create_dir_all(&dir).context("Failed to create data directory")?;
@@ -42,7 +42,7 @@ pub fn save_repositories(repos: &[PathBuf]) -> Result<()> {
     Ok(())
 }
 
-/// Adds the current directory to the repository registry if not already present.
+/// Adds the current directory to the global repository registry if not already present.
 pub fn register_project() -> Result<()> {
     let dir = data_dir()?;
     fs::create_dir_all(&dir).context("Failed to create data directory")?;
@@ -67,31 +67,5 @@ pub fn register_project() -> Result<()> {
             .context("Failed to write repositories.json")?;
     }
 
-    Ok(())
-}
-
-/// Reads the project state from `<project_path>/.usagi/state.json`.
-pub fn get_project_state(project_path: &Path) -> Result<ProjectState> {
-    let state_path = project_path.join(".usagi/state.json");
-    if !state_path.exists() {
-        return Err(anyhow!(
-            "Project state is missing in {}. Please ensure it's a valid usagi project.",
-            project_path.display()
-        ));
-    }
-
-    let state_json = fs::read_to_string(state_path)
-        .context("Failed to read project state")?;
-    let state: ProjectState = serde_json::from_str(&state_json)
-        .context("Failed to parse project state")?;
-    Ok(state)
-}
-
-/// Persists the project state to `<project_path>/.usagi/state.json`.
-pub fn save_project_state(project_path: &Path, state: &ProjectState) -> Result<()> {
-    let state_path = project_path.join(".usagi/state.json");
-    let content = serde_json::to_string_pretty(state)
-        .context("Failed to serialize project state")?;
-    fs::write(state_path, content).context("Failed to write project state")?;
     Ok(())
 }

@@ -1,7 +1,7 @@
 
 use anyhow::Result;
 use std::path::Path;
-use crate::infrastructure::persistence::get_project_state;
+use crate::infrastructure::project_state::get_project_state;
 use crate::presentation::commands::Command;
 
 pub struct HistoryCommand;

@@ -2,7 +2,7 @@ use anyhow::{Result, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
 use crate::domain::project::ProjectState;
-use crate::infrastructure::{git, persistence};
+use crate::infrastructure::{git, global_registry};
 
 /// Initialises a new usagi project.
 ///
@@ -84,7 +84,7 @@ pub fn run(
             .context("Failed to write .gitignore")?;
     }
 
-    persistence::register_project()?;
+    global_registry::register_project()?;
 
     println!("Project initialized successfully.");
     Ok(())
