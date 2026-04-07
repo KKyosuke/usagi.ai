@@ -26,6 +26,7 @@ pub fn get_repositories() -> Result<Vec<PathBuf>> {
 }
 
 /// Persists the list of registered repositories to the global usagi data directory.
+#[allow(dead_code)]
 pub fn save_repositories(repos: &[PathBuf]) -> Result<()> {
     let dir = data_dir()?;
     fs::create_dir_all(&dir).context("Failed to create data directory")?;

@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::Result;
 use std::path::PathBuf;
 use console::{Term, Key, style};
 use crate::infrastructure::global_registry;
@@ -9,7 +9,7 @@ use crate::presentation::tui::{layout, screen::AlternateScreenGuard};
 /// Returns the selected project path and an optional worktree name,
 /// or `None` if the user quit without selecting.
 pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
-    let mut repos = global_registry::get_repositories()?;
+    let repos = global_registry::get_repositories()?;
     let mut selected_index = 0;
     let term = Term::stdout();
     let mut _guard = AlternateScreenGuard::new(term.clone())?;

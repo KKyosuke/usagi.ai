@@ -4,7 +4,7 @@ use console::{Term, Key, style, measure_text_width};
 use crate::infrastructure::project_state::get_project_state;
 use crate::presentation::tui::mode::AppMode;
 use crate::presentation::tui::screen::AlternateScreenGuard;
-use crate::presentation::commands::{self, Command};
+use crate::presentation::commands;
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
