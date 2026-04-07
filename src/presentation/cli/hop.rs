@@ -1,9 +1,10 @@
 use anyhow::{Result, Context, anyhow};
 use std::path::PathBuf;
 use console::{Term, Key, style, measure_text_width};
-use crate::application::init::get_project_state;
-use crate::application::layout::{AppMode, AlternateScreenGuard};
-use crate::application::command::{self, Command};
+use crate::infrastructure::persistence::get_project_state;
+use crate::presentation::tui::mode::AppMode;
+use crate::presentation::tui::screen::AlternateScreenGuard;
+use crate::presentation::commands::{self, Command};
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     // 1 & 2. ProjectState の読み込みと初期化チェック
@@ -23,7 +24,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut current_input = String::new();
     let mut is_command_mode = false;
     let mut history_index: Option<usize> = None;
-    let commands = command::get_commands();
+    let commands = commands::get_commands();
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -362,7 +363,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                             // 履歴を永続化
                                             if !new_state.history.contains(&cmd_to_execute) {
                                                 new_state.history.push(cmd_to_execute.clone());
-                                                let _ = crate::application::init::save_project_state(&project_path, &new_state);
+                                                let _ = crate::infrastructure::persistence::save_project_state(&project_path, &new_state);
                                             } else {
                                                 // 既に存在する場合でも最新として扱うために順序を入れ替える等の処理は
                                                 // 今回はシンプルにするため行わないが、再取得は必要

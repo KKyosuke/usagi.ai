@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::path::Path;
-use super::Command;
+use crate::presentation::commands::Command;
 
 pub struct AiCommand;
 
@@ -30,8 +30,4 @@ impl Command for AiCommand {
     fn run(&self, _args: Vec<String>, _project_path: &Path) -> Result<String> {
         Ok("ai".to_string())
     }
-}
-
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
-    AiCommand.run(args, project_path)
 }

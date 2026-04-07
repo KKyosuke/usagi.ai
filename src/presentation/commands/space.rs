@@ -1,8 +1,8 @@
 use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::path::Path;
-use crate::application::init::{get_project_state, save_project_state};
-use super::Command;
+use crate::infrastructure::persistence::{get_project_state, save_project_state};
+use crate::presentation::commands::Command;
 
 pub struct SpaceCommand;
 
@@ -60,8 +60,4 @@ impl Command for SpaceCommand {
 #[command(name = "space")]
 pub struct SpaceCli {
     pub worktree: Option<String>,
-}
-
-pub fn run(args: Vec<String>, project_path: &Path) -> Result<String> {
-    SpaceCommand.run(args, project_path)
 }
