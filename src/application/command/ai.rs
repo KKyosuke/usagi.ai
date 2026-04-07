@@ -4,19 +4,23 @@ use super::Command;
 
 pub struct AiCommand;
 
+const NAME: &str = "ai";
+const DESCRIPTION: &str = "Call the AI";
+const HELP: &str = "Calls the AI.
+Usage: ai <message>
+You can ask questions or give instructions to the AI based on the current context.";
+
 impl Command for AiCommand {
     fn name(&self) -> &str {
-        "ai"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "AIを呼び出す"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "AIを呼び出す。
-使用法: ai <message>
-現在のコンテキストに基づいてAIに質問や指示を行うことができます。"
+        HELP
     }
 
     fn run(&self, _args: Vec<String>, _project_path: &Path) -> Result<String> {

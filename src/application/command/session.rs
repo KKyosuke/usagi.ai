@@ -7,19 +7,23 @@ use super::Command;
 
 pub struct SessionCommand;
 
+const NAME: &str = "session";
+const DESCRIPTION: &str = "Manage sessions";
+const HELP: &str = "Manages sessions (new working branches and worktrees).
+Usage: session start <branch_name> [--base <base_branch>]
+Creates a new branch and sets up a corresponding Git worktree.";
+
 impl Command for SessionCommand {
     fn name(&self) -> &str {
-        "session"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "セッションを管理する"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "セッション（新しい作業ブランチとワークツリー）を管理します。
-使用法: session start <branch_name> [--base <base_branch>]
-新しいブランチを作成し、対応するGitワークツリーをセットアップします。"
+        HELP
     }
 
     fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {

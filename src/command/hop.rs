@@ -24,7 +24,6 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     let mut is_command_mode = false;
     let mut history_index: Option<usize> = None;
     let commands = command::get_commands();
-    let available_commands: Vec<String> = commands.iter().map(|c| c.name().to_string()).collect();
 
     // 初期選択のワークツリーがあれば設定
     if let Some(initial_wt) = initial_worktree {
@@ -136,21 +135,22 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.write_str(&help_display)?;
 
         // コマンドモードのポップアップ表示
-        if is_command_mode && !current_input.is_empty() {
-            let suggestions: Vec<&String> = available_commands.iter()
-                .filter(|c| c.starts_with(&current_input))
+        if is_command_mode && !current_input.contains(' ') {
+            let suggestions: Vec<(&str, &str)> = commands.iter()
+                .filter(|c| c.name().starts_with(&current_input))
+                .map(|c| (c.name(), c.description()))
                 .collect();
             
             if !suggestions.is_empty() {
                 let popup_x = left_width + 3;
-                let popup_width = 30;
-                let max_suggestions = 5;
+                let popup_width = 60.min((width as usize).saturating_sub(popup_x).saturating_sub(1));
+                let max_suggestions = 10;
                 let display_count = suggestions.len().min(max_suggestions);
                 
-                for (idx, suggestion) in suggestions.iter().take(display_count).enumerate() {
-                    let y = (height as usize).saturating_sub(5 + idx);
+                for (idx, (name, desc)) in suggestions.iter().take(display_count).enumerate() {
+                    let y = (height as usize).saturating_sub(5 + (display_count - 1 - idx));
                     term.move_cursor_to(popup_x, y)?;
-                    let content = format!(" {:<width$} ", suggestion, width = popup_width - 2);
+                    let content = format!(" {:<10} | {:<width$} ", name, desc, width = popup_width.saturating_sub(15));
                     term.write_str(&style(content).black().on_white().to_string())?;
                 }
             }
@@ -168,7 +168,13 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             Ok(k) => k,
             Err(e) => {
                 if e.to_string().contains("read interrupted") {
-                    break;
+                    if is_command_mode {
+                        current_input.clear();
+                        history_index = None;
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
                 return Err(anyhow::Error::from(e)).context("Failed to read key");
             }
@@ -316,11 +322,16 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 history_index = None;
             }
             Key::Tab if is_command_mode => {
-                let suggestions: Vec<&String> = available_commands.iter()
-                    .filter(|c| c.starts_with(&current_input))
+                let cmd_part = current_input.split_whitespace().next().unwrap_or("");
+                let suggestions: Vec<&str> = commands.iter()
+                    .map(|c| c.name())
+                    .filter(|name| name.starts_with(cmd_part))
                     .collect();
                 if let Some(first) = suggestions.first() {
-                    current_input = first.to_string();
+                    // スペースが含まれていない場合のみ、コマンド名を補完
+                    if !current_input.contains(' ') {
+                        current_input = first.to_string();
+                    }
                 }
             }
             Key::Backspace if is_command_mode => {

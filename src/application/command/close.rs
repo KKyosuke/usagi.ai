@@ -4,17 +4,21 @@ use super::Command;
 
 pub struct CloseCommand;
 
+const NAME: &str = "close";
+const DESCRIPTION: &str = "Close the session";
+const HELP: &str = "Closes the session and returns to the directory selection screen.";
+
 impl Command for CloseCommand {
     fn name(&self) -> &str {
-        "close"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "セッションを終了する"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "セッションを終了し、作業ディレクトリ選択画面に戻ります。"
+        HELP
     }
 
     fn run(&self, _args: Vec<String>, _project_path: &Path) -> Result<String> {

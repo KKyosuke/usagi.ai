@@ -6,20 +6,24 @@ use super::Command;
 
 pub struct SpaceCommand;
 
+const NAME: &str = "space";
+const DESCRIPTION: &str = "Switch workspace";
+const HELP: &str = "Switches the workspace.
+Usage: space <worktree_name>
+Switches the current working directory to the specified worktree.
+Specifying 'main' returns to the main worktree.";
+
 impl Command for SpaceCommand {
     fn name(&self) -> &str {
-        "space"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "作業スペースを切り替える"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "作業スペースを切り替える。
-使用法: space <worktree_name>
-指定したワークツリーに現在の作業ディレクトリを切り替えます。
-'main' を指定するとメインのワークツリーに戻ります。"
+        HELP
     }
 
     fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {

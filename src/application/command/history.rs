@@ -6,19 +6,23 @@ use super::Command;
 
 pub struct HistoryCommand;
 
+const NAME: &str = "history";
+const DESCRIPTION: &str = "Show command history";
+const HELP: &str = "Shows the history of commands executed so far.
+You can also re-run a command by specifying its history number.
+Example: Enter '1' to execute the first command in history.";
+
 impl Command for HistoryCommand {
     fn name(&self) -> &str {
-        "history"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "コマンド履歴を表示する"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "これまでに実行したコマンドの履歴を表示します。
-各履歴の番号を指定してコマンドを再実行することも可能です。
-例: '1' と入力すると履歴の1番目のコマンドを実行します。"
+        HELP
     }
 
     fn run(&self, _args: Vec<String>, project_path: &Path) -> Result<String> {

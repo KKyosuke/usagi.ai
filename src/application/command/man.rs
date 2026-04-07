@@ -4,18 +4,22 @@ use super::{Command, get_commands};
 
 pub struct ManCommand;
 
+const NAME: &str = "man";
+const DESCRIPTION: &str = "Show manual";
+const HELP: &str = "Shows a list of available commands or help for a specific command.
+Usage: man [command]";
+
 impl Command for ManCommand {
     fn name(&self) -> &str {
-        "man"
+        NAME
     }
 
     fn description(&self) -> &str {
-        "マニュアルを表示する"
+        DESCRIPTION
     }
 
     fn help(&self) -> &str {
-        "利用可能なコマンドの一覧、または指定したコマンドのヘルプを表示します。
-使用法: man [command]"
+        HELP
     }
 
     fn run(&self, args: Vec<String>, _project_path: &Path) -> Result<String> {
@@ -23,17 +27,17 @@ impl Command for ManCommand {
         if args.len() > 1 {
             let cmd_name = &args[1];
             if let Some(cmd) = commands.iter().find(|c| c.name() == cmd_name) {
-                return Ok(format!("コマンド: {}\n説明: {}\nヘルプ:\n{}", cmd.name(), cmd.description(), cmd.help()));
+                return Ok(format!("Command: {}\nDescription: {}\nHelp:\n{}", cmd.name(), cmd.description(), cmd.help()));
             } else {
-                return Ok(format!("コマンド '{}' は見つかりません。", cmd_name));
+                return Ok(format!("Command '{}' not found.", cmd_name));
             }
         }
 
-        let mut output = String::from("利用可能なコマンド:\n");
+        let mut output = String::from("Available commands:\n");
         for cmd in commands {
             output.push_str(&format!("  {:10} {}\n", cmd.name(), cmd.description()));
         }
-        output.push_str("\n'man <command>' で詳細なヘルプを表示できます。");
+        output.push_str("\nYou can show detailed help with 'man <command>'.");
         Ok(output)
     }
 }

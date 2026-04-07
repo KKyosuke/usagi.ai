@@ -74,7 +74,7 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
     let mut repos = get_repositories()?;
     let mut selected_index = 0;
     let term = Term::stdout();
-    let _guard = AlternateScreenGuard::new(term.clone())?;
+    let mut _guard = AlternateScreenGuard::new(term.clone())?;
 
     loop {
         term.move_cursor_to(0, 0)?;
@@ -96,7 +96,17 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
 
         layout::render_footer(&term);
 
-        let key = term.read_key().context("Failed to read key")?;
+        let key = match term.read_key() {
+            Ok(k) => k,
+            Err(e) => {
+                if e.to_string().contains("read interrupted") {
+                    drop(_guard);
+                    println!("Quit.");
+                    return Ok(None);
+                }
+                return Err(anyhow::Error::from(e)).context("Failed to read key");
+            }
+        };
         
         match key {
             Key::ArrowUp => {
@@ -110,6 +120,7 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
             Key::Enter => {
                 if selected_index == 0 { // Open
                     if let Some(selected_path) = show_project_list_modal(&term, &repos)? {
+                        _guard.dismiss();
                         drop(_guard);
                         return Ok(Some((selected_path, None)));
                     }
@@ -119,7 +130,8 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                     return Ok(None);
                 }
             }
-            Key::Char('q') | Key::Escape => {
+            Key::Char('q') | Key::Escape | Key::CtrlC => {
+                // ここでは明示的な終了なのでメッセージを出す（dismissしない）
                 drop(_guard);
                 println!("Quit.");
                 return Ok(None);
@@ -158,7 +170,15 @@ pub fn show_project_list_modal(term: &Term, repos: &[PathBuf]) -> Result<Option<
             }
         }
 
-        let key = term.read_key().context("Failed to read key")?;
+        let key = match term.read_key() {
+            Ok(k) => k,
+            Err(e) => {
+                if e.to_string().contains("read interrupted") {
+                    return Ok(None);
+                }
+                return Err(anyhow::Error::from(e)).context("Failed to read key");
+            }
+        };
         match key {
             Key::ArrowUp => {
                 if selected_index > 0 { selected_index -= 1; }
@@ -171,7 +191,7 @@ pub fn show_project_list_modal(term: &Term, repos: &[PathBuf]) -> Result<Option<
             Key::Enter => {
                 return Ok(Some(repos[selected_index].clone()));
             }
-            Key::Escape | Key::Char('q') => {
+            Key::Escape | Key::Char('q') | Key::CtrlC => {
                 return Ok(None);
             }
             _ => {}
@@ -201,7 +221,15 @@ fn show_delete_modal(path: &Path) -> Result<bool> {
 
         println!("  {}     {}", delete_btn, keep_btn);
 
-        let key = term.read_key().context("Failed to read key")?;
+        let key = match term.read_key() {
+            Ok(k) => k,
+            Err(e) => {
+                if e.to_string().contains("read interrupted") {
+                    return Ok(false);
+                }
+                return Err(anyhow::Error::from(e)).context("Failed to read key");
+            }
+        };
         term.clear_last_lines(3).context("Failed to clear lines")?;
 
         match key {
@@ -211,7 +239,7 @@ fn show_delete_modal(path: &Path) -> Result<bool> {
             Key::Enter => {
                 return Ok(delete_selected);
             }
-            Key::Escape | Key::Char('q') => {
+            Key::Escape | Key::Char('q') | Key::CtrlC => {
                 return Ok(false);
             }
             _ => {}
