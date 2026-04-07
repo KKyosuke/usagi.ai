@@ -45,6 +45,33 @@ impl Command for SessionCommand {
             }
         }
     }
+
+    fn subcommands(&self) -> Vec<(String, String)> {
+        let cmd = SessionCli::command();
+        cmd.get_subcommands()
+            .map(|sub| {
+                (
+                    sub.get_name().to_string(),
+                    sub.get_about().map(|a| a.to_string()).unwrap_or_default(),
+                )
+            })
+            .collect()
+    }
+
+    fn usage(&self, args: &[&str]) -> Option<String> {
+        let mut cmd = SessionCli::command();
+        if args.len() > 1 {
+            let sub_name = args[1];
+            // get_subcommands() は &Command を返すので、サブコマンドを取得してから render_usage する
+            if let Some(sub) = cmd.get_subcommands().find(|s| s.get_name() == sub_name) {
+                // clone して mut にして render_usage を呼ぶ（clap 4.x の挙動に合わせる）
+                let usage = sub.clone().render_usage().to_string();
+                let cleaned_usage = usage.replace("session-", "session ");
+                return Some(cleaned_usage);
+            }
+        }
+        Some("Usage: session <SUBCOMMAND>".to_string())
+    }
 }
 
 #[derive(Parser, Debug)]

@@ -21,6 +21,10 @@ impl Command for CloseCommand {
         HELP
     }
 
+    fn usage(&self, _args: &[&str]) -> Option<String> {
+        Some("Usage: close".to_string())
+    }
+
     fn run(&self, _args: Vec<String>, _project_path: &Path) -> Result<String> {
         Ok("close".to_string())
     }

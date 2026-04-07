@@ -26,6 +26,10 @@ impl Command for SpaceCommand {
         HELP
     }
 
+    fn usage(&self, _args: &[&str]) -> Option<String> {
+        Some("Usage: space <WORKTREE>".to_string())
+    }
+
     fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {
         let cli = match SpaceCli::try_parse_from(args) {
             Ok(cli) => cli,

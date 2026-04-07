@@ -13,6 +13,12 @@ pub trait Command: Send + Sync {
     fn description(&self) -> &str;
     fn help(&self) -> &str;
     fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String>;
+    fn subcommands(&self) -> Vec<(String, String)> {
+        vec![]
+    }
+    fn usage(&self, _args: &[&str]) -> Option<String> {
+        None
+    }
 }
 
 pub fn get_commands() -> Vec<Box<dyn Command>> {

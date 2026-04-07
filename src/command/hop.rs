@@ -135,20 +135,101 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.write_str(&help_display)?;
 
         // コマンドモードのポップアップ表示
-        if is_command_mode && !current_input.contains(' ') {
-            let suggestions: Vec<(&str, &str)> = commands.iter()
-                .filter(|c| c.name().starts_with(&current_input))
-                .map(|c| (c.name(), c.description()))
-                .collect();
+        if is_command_mode {
+            let parts: Vec<&str> = current_input.split_whitespace().collect();
+            let mut suggestions: Vec<(String, String)> = Vec::new();
+            let mut popup_x = left_width + 3;
+            let mut usage_text: Option<String> = None;
+
+            if !current_input.contains(' ') {
+                // コマンド名のサジェスト
+                let mut current_suggestions: Vec<(String, String)> = commands.iter()
+                    .filter(|c| c.name().starts_with(&current_input))
+                    .map(|c| (c.name().to_string(), c.description().to_string()))
+                    .collect();
+
+                // サジェストが1つだけの場合、その詳細な使用法を表示する
+                if current_suggestions.len() == 1 {
+                    let name = current_suggestions[0].0.clone();
+                    if let Some(command) = commands.iter().find(|c| c.name() == name) {
+                        usage_text = command.usage(&[name.as_str()]);
+                        if name == current_input {
+                            current_suggestions.clear();
+                        }
+                    }
+                }
+                suggestions = current_suggestions;
+            } else if !parts.is_empty() {
+                // コマンドの引数/サブコマンドのサジェスト
+                let cmd_name = parts[0];
+                if let Some(command) = commands.iter().find(|c| c.name() == cmd_name) {
+                    let last_part = if current_input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
+                    let mut current_suggestions: Vec<(String, String)> = command.subcommands()
+                        .into_iter()
+                        .filter(|(name, _)| name.starts_with(last_part))
+                        .collect();
+
+                    // サジェストが1つだけの場合、その詳細な使用法を表示する
+                    if current_suggestions.len() == 1 {
+                        let name = current_suggestions[0].0.clone();
+                        let is_perfect_match = name == last_part;
+
+                        let mut check_parts = parts.clone();
+                        if !current_input.ends_with(' ') {
+                            if let Some(last) = check_parts.last_mut() {
+                                *last = name.as_str();
+                            }
+                        } else {
+                            // すでにそのコマンドが入力済みの場合は、そのコマンド自体のサジェストは不要
+                            if parts.iter().any(|&p| p == name) {
+                                current_suggestions.clear();
+                            }
+                            check_parts.push(name.as_str());
+                        }
+
+                        if let Some(detail_usage) = command.usage(&check_parts) {
+                            usage_text = Some(detail_usage);
+                        } else {
+                            usage_text = command.usage(&parts);
+                        }
+
+                        if is_perfect_match {
+                            current_suggestions.clear();
+                        }
+                    } else {
+                        usage_text = command.usage(&parts);
+                    }
+                    suggestions = current_suggestions;
+                    
+                    // 表示位置を入力中の単語の開始位置に合わせる
+                    let input_before_last = if current_input.ends_with(' ') {
+                        &current_input
+                    } else {
+                        current_input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
+                    };
+                    popup_x += measure_text_width(input_before_last);
+                    if !input_before_last.is_empty() && !input_before_last.ends_with(' ') {
+                        popup_x += 1;
+                    }
+                }
+            }
             
+            let mut offset = 5;
+            if let Some(usage) = usage_text {
+                let usage_popup_width = 60.min((width as usize).saturating_sub(left_width + 3).saturating_sub(1));
+                term.move_cursor_to(left_width + 3, (height as usize).saturating_sub(offset))?;
+                let content = format!(" {:<width$} ", usage, width = usage_popup_width.saturating_sub(2));
+                term.write_str(&style(content).black().on_white().to_string())?;
+                offset += 1;
+            }
+
             if !suggestions.is_empty() {
-                let popup_x = left_width + 3;
                 let popup_width = 60.min((width as usize).saturating_sub(popup_x).saturating_sub(1));
                 let max_suggestions = 10;
                 let display_count = suggestions.len().min(max_suggestions);
                 
                 for (idx, (name, desc)) in suggestions.iter().take(display_count).enumerate() {
-                    let y = (height as usize).saturating_sub(5 + (display_count - 1 - idx));
+                    let y = (height as usize).saturating_sub(offset + (display_count - 1 - idx));
                     term.move_cursor_to(popup_x, y)?;
                     let content = format!(" {:<10} | {:<width$} ", name, desc, width = popup_width.saturating_sub(15));
                     term.write_str(&style(content).black().on_white().to_string())?;
@@ -322,15 +403,34 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 history_index = None;
             }
             Key::Tab if is_command_mode => {
-                let cmd_part = current_input.split_whitespace().next().unwrap_or("");
-                let suggestions: Vec<&str> = commands.iter()
-                    .map(|c| c.name())
-                    .filter(|name| name.starts_with(cmd_part))
-                    .collect();
-                if let Some(first) = suggestions.first() {
-                    // スペースが含まれていない場合のみ、コマンド名を補完
-                    if !current_input.contains(' ') {
+                let parts: Vec<&str> = current_input.split_whitespace().collect();
+                if !current_input.contains(' ') {
+                    // コマンド名の補完
+                    let suggestions: Vec<&str> = commands.iter()
+                        .map(|c| c.name())
+                        .filter(|name| name.starts_with(&current_input))
+                        .collect();
+                    if let Some(first) = suggestions.first() {
                         current_input = first.to_string();
+                    }
+                } else if !parts.is_empty() {
+                    // 引数の補完
+                    let cmd_name = parts[0];
+                    if let Some(command) = commands.iter().find(|c| c.name() == cmd_name) {
+                        let last_part = if current_input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
+                        let suggestions = command.subcommands();
+                        if let Some((name, _)) = suggestions.iter().find(|(name, _)| name.starts_with(last_part)) {
+                            let head = if current_input.ends_with(' ') {
+                                &current_input
+                            } else {
+                                current_input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
+                            };
+                            if head.is_empty() || head.ends_with(' ') {
+                                current_input = format!("{}{}", head, name);
+                            } else {
+                                current_input = format!("{} {}", head, name);
+                            }
+                        }
                     }
                 }
             }

@@ -22,6 +22,17 @@ impl Command for ManCommand {
         HELP
     }
 
+    fn subcommands(&self) -> Vec<(String, String)> {
+        get_commands()
+            .into_iter()
+            .map(|c| (c.name().to_string(), c.description().to_string()))
+            .collect()
+    }
+
+    fn usage(&self, _args: &[&str]) -> Option<String> {
+        Some("Usage: man [COMMAND]".to_string())
+    }
+
     fn run(&self, args: Vec<String>, _project_path: &Path) -> Result<String> {
         let commands = get_commands();
         if args.len() > 1 {

@@ -25,6 +25,10 @@ impl Command for HistoryCommand {
         HELP
     }
 
+    fn usage(&self, _args: &[&str]) -> Option<String> {
+        Some("Usage: history".to_string())
+    }
+
     fn run(&self, _args: Vec<String>, project_path: &Path) -> Result<String> {
         let state = get_project_state(project_path)?;
         let mut output = String::new();
