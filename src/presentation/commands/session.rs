@@ -68,7 +68,11 @@ impl Command for SessionCommand {
                 return Some(cleaned_usage);
             }
         }
-        Some("Usage: session <SUBCOMMAND>".to_string())
+        Some("Usage: session [COMMAND]
+                          |
+                          | Commands:
+                          |   start  Start a new session
+                          |   help   Print this message or the help of the given subcommand(s)".to_string())
     }
 }
 

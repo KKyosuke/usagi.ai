@@ -217,11 +217,14 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             
             let mut offset = 5;
             if let Some(usage) = usage_text {
-                let usage_popup_width = 60.min((width as usize).saturating_sub(left_width + 3).saturating_sub(1));
-                term.move_cursor_to(left_width + 3, (height as usize).saturating_sub(offset))?;
-                let content = format!(" {:<width$} ", usage, width = usage_popup_width.saturating_sub(2));
-                term.write_str(&style(content).black().on_white().to_string())?;
-                offset += 1;
+                let lines: Vec<&str> = usage.lines().collect();
+                for (i, line) in lines.iter().rev().enumerate() {
+                    let y = (height as usize).saturating_sub(offset + i);
+                    term.move_cursor_to(0, y)?;
+                    let display_line = format!("{:<width$}", line, width = width as usize);
+                    term.write_str(&style(display_line).black().on_white().to_string())?;
+                }
+                offset += lines.len();
             }
 
             if !suggestions.is_empty() {
