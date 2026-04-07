@@ -1,15 +1,25 @@
-# ソースコードのディレクトリ構造
+# ソースコードの構造
 
 `src/` はクリーンアーキテクチャの4層で構成されています。
 各層は矢印の方向にのみ依存します。
 
-```
-presentation → usecase → domain
-     ↓                      ↑
-infrastructure ─────────────┘
+## 依存関係の方向
+
+```mermaid
+graph LR
+    presentation["presentation\n（プレゼンテーション層）"]
+    usecase["usecase\n（ユースケース層）"]
+    domain["domain\n（ドメイン層）"]
+    infrastructure["infrastructure\n（インフラ層）"]
+
+    presentation --> usecase
+    presentation --> infrastructure
+    usecase --> domain
+    usecase --> infrastructure
+    infrastructure --> domain
 ```
 
-## 概要
+## ディレクトリ構成
 
 ```
 src/
@@ -112,3 +122,38 @@ TUI起動中にコマンド入力欄から実行できるコマンドを定義�
 | `man.rs` | コマンドのヘルプ表示（`man [command]`） |
 | `session.rs` | 新しいセッション（ブランチ＋worktree）の作成（`session start <branch>`） |
 | `space.rs` | ワークスペースの切り替え（`space <worktree>`） |
+
+## コマンドの呼び出しフロー
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant main.rs
+    participant cli
+    participant tui
+    participant commands
+    participant usecase
+    participant infrastructure
+
+    User->>main.rs: usagi init <URL>
+    main.rs->>cli: init::run()
+    cli->>usecase: initialize::run()
+    usecase->>infrastructure: git::clone(), project_state::save(), global_registry::register()
+
+    User->>main.rs: usagi open
+    main.rs->>cli: open::run()
+    cli->>tui: open::run_terminal_ui()
+    tui->>infrastructure: global_registry::get_repositories()
+    tui-->>cli: (選択されたプロジェクトパス)
+    cli->>cli: hop::run()
+
+    User->>cli: (コマンド入力: session start my-feature)
+    cli->>commands: session::run()
+    commands->>infrastructure: git::create_worktree(), project_state::save()
+```
+
+## 関連ドキュメント
+
+- [モードの種類と切り替え](./mode.md)
+- [グローバルDB（共通リポジトリ管理）](./global.md)
+- [初期化後のディレクトリ構造](./directory.md)
