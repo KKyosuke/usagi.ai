@@ -1,14 +1,13 @@
 use anyhow::{Result, Context, anyhow};
 use std::fs;
 use std::path::PathBuf;
-use directories::ProjectDirs;
 use crate::domain::project::Repositories;
 
 /// Returns the path to the usagi application data directory.
 fn data_dir() -> Result<PathBuf> {
-    let proj_dirs = ProjectDirs::from("", "", "usagi")
+    let base_dirs = directories::BaseDirs::new()
         .ok_or_else(|| anyhow!("Could not determine home directory"))?;
-    Ok(proj_dirs.data_dir().to_path_buf())
+    Ok(base_dirs.home_dir().join(".usagi"))
 }
 
 /// Reads the list of registered repositories from the global usagi data directory.

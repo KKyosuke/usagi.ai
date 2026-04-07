@@ -13,9 +13,41 @@ A tool designed for efficient use of AI Agent CLIs.
 cargo install --git https://github.com/KKyosuke/usagi.ai
 ```
 
+### Using cargo-binstall
+
+If you have [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) installed, you can install the binary directly from GitHub:
+
+```bash
+cargo binstall --git https://github.com/KKyosuke/usagi.ai usagi
+```
+
 ### From GitHub Releases
-Download the latest binary for your OS from the [Releases](https://github.com/KKyosuke/usagi.ai/releases) page.
-Unzip (if needed) and move the binary to a directory in your PATH.
+
+You can install `usagi` with a single command (macOS and Linux):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KKyosuke/usagi.ai/main/scripts/install.sh | bash
+```
+
+Alternatively, you can download the binary for your platform and install it with the following commands:
+
+#### macOS (Apple Silicon)
+```bash
+curl -L https://github.com/KKyosuke/usagi.ai/releases/latest/download/usagi-macos-arm64.tar.gz | tar -xz && ./install.sh && rm install.sh
+```
+
+#### macOS (Intel)
+```bash
+curl -L https://github.com/KKyosuke/usagi.ai/releases/latest/download/usagi-macos-amd64.tar.gz | tar -xz && ./install.sh && rm install.sh
+```
+
+#### Linux (AMD64)
+```bash
+curl -L https://github.com/KKyosuke/usagi.ai/releases/latest/download/usagi-linux-amd64.tar.gz | tar -xz && ./install.sh && rm install.sh
+```
+
+#### Windows (AMD64)
+Download the latest `usagi-windows-amd64.zip` from the [Releases](https://github.com/KKyosuke/usagi.ai/releases) page, extract it, and run `install.sh` (using Git Bash) or manually add the binary to your PATH.
 
 ## Quick Start
 

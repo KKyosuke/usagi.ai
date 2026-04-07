@@ -30,7 +30,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: usagi.exe
-            asset_name: usagi-windows-amd64.exe
+            asset_name: usagi-windows-amd64
 
     steps:
       - name: Checkout repository
@@ -51,16 +51,25 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
+          mkdir -p dist
+          cp ${{ matrix.artifact_name }} dist/
+          cp ../../../scripts/install.sh dist/
+          chmod +x dist/install.sh
+          cd dist
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv ${{ matrix.artifact_name }} ../../../${{ matrix.asset_name }}
+            ASSET_FILENAME="${{ matrix.asset_name }}.zip"
+            7z a ../../../../$ASSET_FILENAME *
+            echo "ASSET_FILENAME=$ASSET_FILENAME" >> $GITHUB_ENV
           else
-            mv ${{ matrix.artifact_name }} ../../../${{ matrix.asset_name }}
+            ASSET_FILENAME="${{ matrix.asset_name }}.tar.gz"
+            tar -czvf ../../../../$ASSET_FILENAME .
+            echo "ASSET_FILENAME=$ASSET_FILENAME" >> $GITHUB_ENV
           fi
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: ${{ env.ASSET_FILENAME }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
