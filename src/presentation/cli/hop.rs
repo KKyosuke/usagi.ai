@@ -335,63 +335,59 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                 command.run(parts, &project_path)
                             } else {
                                 let available: Vec<String> = commands.iter().map(|c| c.name().to_string()).collect();
-                                command_history.push(format!("Unknown command: {}", cmd_name));
-                                command_history.push(format!("Available commands: {}", available.join(", ")));
-                                Ok("".to_string())
+                                Ok(format!("Unknown command: {}\nAvailable commands: {}", cmd_name, available.join(", ")))
                             };
 
-                            match result {
-                                Err(e) => {
-                                    for line in e.to_string().lines() {
-                                        command_history.push(line.to_string());
+                            if cmd_name == "close" || is_session_close {
+                                if result.is_ok() {
+                                    is_command_mode = false;
+                                    // 状態を再読み込み
+                                    if let Ok(new_state) = get_project_state(&project_path) {
+                                        state = new_state;
+                                        worktrees = vec!["main".to_string()];
+                                        worktrees.extend(state.worktrees.clone());
+                                        if let Some(current_wt) = &state.current_worktree {
+                                            if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                selected_index = idx;
+                                            }
+                                        } else {
+                                            selected_index = 0; // main を選択
+                                        }
                                     }
                                 }
-                                Ok(output) => {
-                                    if cmd_name == "close" || is_session_close {
-                                        is_command_mode = false;
-                                        // 状態を再読み込み
-                                        if let Ok(new_state) = get_project_state(&project_path) {
-                                            state = new_state;
-                                            worktrees = vec!["main".to_string()];
-                                            worktrees.extend(state.worktrees.clone());
-                                            if let Some(current_wt) = &state.current_worktree {
-                                                if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
-                                                    selected_index = idx;
-                                                }
-                                            } else {
-                                                selected_index = 0; // main を選択
-                                            }
-                                        }
-                                    } else {
-                                        // コマンド実行に成功した場合のみ履歴に追加
-                                        command_history.push(cmd_to_execute.clone());
+                            } else {
+                                // 履歴に追加
+                                command_history.push(cmd_to_execute.clone());
+                                match result {
+                                    Ok(output) => {
                                         if !output.is_empty() {
                                             for line in output.lines() {
                                                 command_history.push(line.to_string());
                                             }
                                         }
-                                        
-                                        // 状態が更新された可能性があるので再読み込みして表示を更新
-                                        if let Ok(mut new_state) = get_project_state(&project_path) {
-                                            // 履歴を永続化
-                                            if !new_state.history.contains(&cmd_to_execute) {
-                                                new_state.history.push(cmd_to_execute.clone());
-                                                let _ = crate::infrastructure::project_state::save_project_state(&project_path, &new_state);
-                                            } else {
-                                                // 既に存在する場合でも最新として扱うために順序を入れ替える等の処理は
-                                                // 今回はシンプルにするため行わないが、再取得は必要
-                                            }
+                                    }
+                                    Err(e) => {
+                                        for line in e.to_string().lines() {
+                                            command_history.push(line.to_string());
+                                        }
+                                    }
+                                }
 
-                                            // 状態をローカルの state にも反映
-                                            state = new_state;
+                                // 状態が更新された可能性があるので再読み込みして表示を更新
+                                if let Ok(mut new_state) = get_project_state(&project_path) {
+                                    // 履歴を永続化
+                                    if !new_state.history.contains(&cmd_to_execute) {
+                                        new_state.history.push(cmd_to_execute.clone());
+                                        let _ = crate::infrastructure::project_state::save_project_state(&project_path, &new_state);
+                                    }
 
-                                            worktrees = vec!["main".to_string()];
-                                            worktrees.extend(state.worktrees.clone());
-                                            if let Some(current_wt) = &state.current_worktree {
-                                                if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
-                                                    selected_index = idx;
-                                                }
-                                            }
+                                    // 状態を反映
+                                    state = new_state;
+                                    worktrees = vec!["main".to_string()];
+                                    worktrees.extend(state.worktrees.clone());
+                                    if let Some(current_wt) = &state.current_worktree {
+                                        if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                            selected_index = idx;
                                         }
                                     }
                                 }
