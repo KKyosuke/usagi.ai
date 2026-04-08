@@ -40,12 +40,14 @@ pub fn run(
     }
     fs::create_dir_all(usagi_dir).context("Failed to create .usagi directory")?;
 
-    let state = ProjectState {
+    let mut state = ProjectState {
         initialized: true,
         worktrees: vec![],
         current_worktree: Some("main".to_string()),
         history: vec![],
+        last_updated: None,
     };
+    state.update_last_updated();
     let state_json =
         serde_json::to_string_pretty(&state).context("Failed to serialize project state")?;
     fs::write(usagi_dir.join("state.json"), state_json)

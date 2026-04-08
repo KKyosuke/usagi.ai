@@ -20,10 +20,10 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         layout::show_rabbit(&term);
 
         let menu_items = vec![
-            layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string() },
-            layout::MenuItem { icon: "".to_string(), label: "New".to_string(), key: "e".to_string() },
-            layout::MenuItem { icon: "".to_string(), label: "Config".to_string(), key: "c".to_string() },
-            layout::MenuItem { icon: "".to_string(), label: "Quit".to_string(), key: "q".to_string() },
+            layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string(), last_updated: None },
+            layout::MenuItem { icon: "".to_string(), label: "New".to_string(), key: "e".to_string(), last_updated: None },
+            layout::MenuItem { icon: "".to_string(), label: "Config".to_string(), key: "c".to_string(), last_updated: None },
+            layout::MenuItem { icon: "".to_string(), label: "Quit".to_string(), key: "q".to_string(), last_updated: None },
         ];
 
         layout::render_side_menu(&term, &menu_items, selected_index);
@@ -50,6 +50,28 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                 if selected_index < menu_items.len() - 1 { selected_index += 1; }
                 else { selected_index = 0; }
             }
+            Key::Char('o') => {
+                selected_index = 0;
+                if let Some(selected_path) = show_project_list_modal(&term, &repos)? {
+                    _guard.dismiss();
+                    drop(_guard);
+                    return Ok(Some((selected_path, None)));
+                }
+            }
+            Key::Char('e') => {
+                selected_index = 1;
+                term.clear_screen()?;
+                term.write_line("New feature is not implemented yet. Please use 'usagi init'.")?;
+                term.write_line("Press any key to continue...")?;
+                term.read_key()?;
+            }
+            Key::Char('c') => {
+                selected_index = 2;
+                term.clear_screen()?;
+                term.write_line("Config feature is not implemented yet.")?;
+                term.write_line("Press any key to continue...")?;
+                term.read_key()?;
+            }
             Key::Enter => {
                 if selected_index == 0 {
                     if let Some(selected_path) = show_project_list_modal(&term, &repos)? {
@@ -57,6 +79,16 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
                         drop(_guard);
                         return Ok(Some((selected_path, None)));
                     }
+                } else if selected_index == 1 {
+                    term.clear_screen()?;
+                    term.write_line("New feature is not implemented yet. Please use 'usagi init'.")?;
+                    term.write_line("Press any key to continue...")?;
+                    term.read_key()?;
+                } else if selected_index == 2 {
+                    term.clear_screen()?;
+                    term.write_line("Config feature is not implemented yet.")?;
+                    term.write_line("Press any key to continue...")?;
+                    term.read_key()?;
                 } else if selected_index == 3 {
                     drop(_guard);
                     println!("Quit.");
@@ -82,6 +114,12 @@ pub fn show_project_list_modal(
 ) -> Result<Option<PathBuf>> {
     let mut selected_index = 0;
     if repos.is_empty() {
+        term.clear_screen()?;
+        term.write_line("No registered projects found.")?;
+        term.write_line("Please run 'usagi init <URL>' to register a project.")?;
+        term.write_line("")?;
+        term.write_line("Press any key to return to menu...")?;
+        term.read_key()?;
         return Ok(None);
     }
 
@@ -101,6 +139,11 @@ pub fn show_project_list_modal(
         term.write_line("")?;
 
         for (i, repo) in repos.iter().enumerate() {
+            let mut last_updated = None;
+            if let Ok(state) = crate::infrastructure::project_state::get_project_state(repo) {
+                last_updated = state.last_updated;
+            }
+
             let label = repo.display().to_string();
             let label_len = label.chars().count() + 2;
             let left_padding = if width > label_len { (width - label_len) / 2 } else { 0 };
@@ -113,6 +156,15 @@ pub fn show_project_list_modal(
                 ))?;
             } else {
                 term.write_line(&format!("{}  {}", " ".repeat(left_padding), label))?;
+            }
+
+            if let Some(time) = last_updated {
+                let time_label = format!("  Last update: {}", time);
+                term.write_line(&format!(
+                    "{}{}",
+                    " ".repeat(left_padding),
+                    style(time_label).dim()
+                ))?;
             }
         }
 

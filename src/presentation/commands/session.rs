@@ -140,6 +140,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
         state.worktrees.push(branch.to_string());
     }
     state.current_worktree = Some(branch.to_string());
+    state.update_last_updated();
     save_project_state(project_path, &state)?;
 
     Ok(format!("Session started: branch '{}' in '{}'", branch, worktree_path.display()))
@@ -163,6 +164,7 @@ fn close_session(branch: &str, project_path: &Path) -> Result<String> {
     if state.current_worktree.as_deref() == Some(branch) {
         state.current_worktree = state.worktrees.first().cloned();
     }
+    state.update_last_updated();
     save_project_state(project_path, &state)?;
 
     Ok(format!("Session closed: branch '{}' removed and deleted", branch))

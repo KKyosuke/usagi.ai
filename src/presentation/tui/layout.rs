@@ -5,6 +5,7 @@ pub struct MenuItem {
     pub icon: String,
     pub label: String,
     pub key: String,
+    pub last_updated: Option<String>,
 }
 
 /// Renders the usagi ASCII-art mascot centred in the terminal.
@@ -59,7 +60,8 @@ pub fn render_side_menu(term: &Term, items: &[MenuItem], selected_index: usize) 
     let _ = term.write_line("");
 
     for (i, item) in items.iter().enumerate() {
-        let prefix = if i == selected_index {
+        let is_selected = i == selected_index;
+        let prefix = if is_selected {
             style(&item.icon).red().bold().to_string()
         } else {
             style(&item.icon).yellow().to_string()
@@ -71,21 +73,41 @@ pub fn render_side_menu(term: &Term, items: &[MenuItem], selected_index: usize) 
         let menu_width = 30;
         let left_padding = if width > menu_width { (width - menu_width) / 2 } else { 0 };
 
-        let cursor = if i == selected_index {
-            style(" ").bg(console::Color::Red).to_string()
+        let cursor = if is_selected {
+            style(">").red().bold().to_string()
         } else {
             " ".to_string()
         };
 
+        let label_display = if is_selected {
+            style(format!("{:<10}", label)).cyan().bold().to_string()
+        } else {
+            format!("{:<10}", label)
+        };
+
+        let key_display = if is_selected {
+            style(format!("{:>5}", key)).yellow().to_string()
+        } else {
+            format!("{:>5}", key)
+        };
+
         let line = format!(
-            "{}{} {} {:<10} {:>5}",
+            "{}{} {} {} {}",
             " ".repeat(left_padding),
             prefix,
             cursor,
-            label,
-            key
+            label_display,
+            key_display
         );
         let _ = term.write_line(&line);
+        if let Some(time) = &item.last_updated {
+            let time_line = format!(
+                "{}       {}",
+                " ".repeat(left_padding),
+                style(format!("Last update: {}", time)).dim()
+            );
+            let _ = term.write_line(&time_line);
+        }
         let _ = term.write_line("");
     }
 }

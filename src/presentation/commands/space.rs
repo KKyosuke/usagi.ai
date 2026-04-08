@@ -48,6 +48,7 @@ impl Command for SpaceCommand {
                 }
                 state.current_worktree = Some(worktree.clone());
             }
+            state.update_last_updated();
             save_project_state(project_path, &state)?;
             Ok(format!("Switched to workspace '{}'", worktree))
         } else {

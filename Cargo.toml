@@ -14,3 +14,4 @@ directories = "5.0"
 inquire = "0.7"
 console = "0.15"
 ctrlc = "3.4"
+chrono = { version = "0.4.44", features = ["clock"] }

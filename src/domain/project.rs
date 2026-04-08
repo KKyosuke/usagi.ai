@@ -9,6 +9,14 @@ pub struct ProjectState {
     pub current_worktree: Option<String>,
     #[serde(default)]
     pub history: Vec<String>,
+    #[serde(default)]
+    pub last_updated: Option<String>,
+}
+
+impl ProjectState {
+    pub fn update_last_updated(&mut self) {
+        self.last_updated = Some(chrono::Local::now().format("%Y-%m-%d %H:%M").to_string());
+    }
 }
 
 /// Core entity representing the list of registered usagi repositories.

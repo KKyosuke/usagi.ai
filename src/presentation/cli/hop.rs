@@ -378,6 +378,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     // 履歴を永続化
                                     if !new_state.history.contains(&cmd_to_execute) {
                                         new_state.history.push(cmd_to_execute.clone());
+                                        new_state.update_last_updated();
                                         let _ = crate::infrastructure::project_state::save_project_state(&project_path, &new_state);
                                     }
 
