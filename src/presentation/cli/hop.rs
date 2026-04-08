@@ -60,7 +60,6 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         term.write_line(&format!("MODE: {}", style(mode.label()).bold().cyan()))?;
 
         // 左右分割描画
-        let current_state = get_project_state(&project_path).ok();
         for i in 0..(height as usize - 6) {
             let left_content = if i == 0 {
                 style("workspace").bold().to_string()
@@ -68,20 +67,12 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                 let wt_idx = i - 1;
                 let wt = &worktrees[wt_idx];
                 
-                let is_active = if let Some(ref s) = current_state {
-                    s.current_worktree.as_deref() == Some(wt) || (wt == "main" && s.current_worktree.is_none())
-                } else {
-                    false
-                };
-
                 let mark_char = "●";
                 let mark_width = measure_text_width(mark_char);
                 let cursor = if wt_idx == selected_index && !is_command_mode { ">" } else { " " };
                 let is_selected = wt_idx == selected_index;
                 let mark = if is_selected {
                     style(mark_char).green().to_string()
-                } else if is_active {
-                    style(mark_char).dim().to_string()
                 } else {
                     " ".repeat(mark_width)
                 };
