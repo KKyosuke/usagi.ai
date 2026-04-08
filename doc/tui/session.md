@@ -37,6 +37,20 @@ session close <BRANCH>
 `close` を実行すると、対応する Git worktree が削除され、**ローカルブランチも強制削除（`git branch -D`）されます。**
 作業内容が保存（commit/push）されていることを確認してから実行してください。
 
+### `update` — セッションを更新
+
+```
+session update [--all] [--base <BASE_BRANCH>]
+```
+
+| 引数 / オプション | 必須 | 説明 |
+|---|---|---|
+| `--all`, `-a` | — | 現在開いている全てのセッションを更新する |
+| `--base <BASE_BRANCH>`, `-b <BASE_BRANCH>` | — | ベースにするブランチ（省略時はリモートのデフォルトブランチ） |
+
+`update` を実行すると、指定したベースブランチ（デフォルトはリモートのデフォルトブランチ）から最新の変更を取り込みます（`git rebase` を使用）。
+ベースブランチにリモート名が含まれる場合（例: `origin/main`）、事前に `git fetch` を実行します。
+
 ## 例
 
 ```
@@ -45,6 +59,12 @@ session start my-feature
 
 # develop ブランチをベースに hotfix ブランチを作成
 session start hotfix --base develop
+
+# 現在のセッションをデフォルトブランチで更新
+session update
+
+# 全てのセッションを origin/develop で更新
+session update --all --base origin/develop
 ```
 
 ## 処理フロー

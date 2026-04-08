@@ -105,3 +105,35 @@ pub fn get_default_branch(project_path: &Path) -> Result<String> {
 
     Ok("origin/main".to_string())
 }
+
+/// Fetches the latest changes from the specified remote.
+pub fn fetch(project_path: &Path, remote: &str) -> Result<()> {
+    let status = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(project_path.join("main"))
+        .arg("fetch")
+        .arg(remote)
+        .status()
+        .context(format!("Failed to execute git fetch {}", remote))?;
+
+    if !status.success() {
+        return Err(anyhow!("git fetch {} failed.", remote));
+    }
+    Ok(())
+}
+
+/// Rebases the current branch of the worktree at `worktree_path` onto `base_branch`.
+pub fn rebase(worktree_path: &Path, base_branch: &str) -> Result<()> {
+    let status = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(worktree_path)
+        .arg("rebase")
+        .arg(base_branch)
+        .status()
+        .context(format!("Failed to execute git rebase {}", base_branch))?;
+
+    if !status.success() {
+        return Err(anyhow!("git rebase {} failed in {}.", base_branch, worktree_path.display()));
+    }
+    Ok(())
+}

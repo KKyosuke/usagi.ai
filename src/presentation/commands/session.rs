@@ -12,6 +12,7 @@ const DESCRIPTION: &str = "Manage sessions";
 const HELP: &str = "Manages sessions (new working branches and worktrees).
 Usage: session start <branch_name> [--base <base_branch>]
        session close <branch_name>
+       session update [--all] [--base <base_branch>]
 Closes and removes an existing session (removes worktree and deletes the local branch).";
 
 impl Command for SessionCommand {
@@ -41,6 +42,9 @@ impl Command for SessionCommand {
             }
             Some(SessionCommands::Close { branch }) => {
                 close_session(&branch, project_path)
+            }
+            Some(SessionCommands::Update { all, base }) => {
+                update_sessions(all, base, project_path)
             }
             None => {
                 let mut cmd = SessionCli::command();
@@ -74,9 +78,10 @@ impl Command for SessionCommand {
         }
         Some("Usage: session [COMMAND]
 Commands:
-  start  Start a new session
-  close  Close a session
-  help   Print this message or the help of the given subcommand(s)".to_string())
+  start   Start a new session
+  close   Close a session
+  update  Update session(s)
+  help    Print this message or the help of the given subcommand(s)".to_string())
     }
 }
 
@@ -101,6 +106,15 @@ pub enum SessionCommands {
     Close {
         /// Branch name
         branch: String,
+    },
+    /// Update session(s)
+    Update {
+        /// Update all sessions
+        #[arg(short, long)]
+        all: bool,
+        /// Base branch to update from (optional, default: origin default branch)
+        #[arg(short, long)]
+        base: Option<String>,
     },
 }
 
@@ -152,4 +166,50 @@ fn close_session(branch: &str, project_path: &Path) -> Result<String> {
     save_project_state(project_path, &state)?;
 
     Ok(format!("Session closed: branch '{}' removed and deleted", branch))
+}
+
+fn update_sessions(all: bool, base: Option<String>, project_path: &Path) -> Result<String> {
+    let state = get_project_state(project_path)?;
+
+    let base_branch = match base {
+        Some(b) => b,
+        None => git::get_default_branch(project_path)?,
+    };
+
+    if base_branch.contains('/') {
+        if let Some(remote) = base_branch.split('/').next() {
+            if !remote.is_empty() {
+                println!("Fetching remote '{}'...", remote);
+                git::fetch(project_path, remote)?;
+            }
+        }
+    }
+
+    let sessions_to_update = if all {
+        if state.worktrees.is_empty() {
+            return Ok("No sessions found to update.".to_string());
+        }
+        state.worktrees.clone()
+    } else {
+        match state.current_worktree {
+            Some(ref w) => vec![w.clone()],
+            None => return Err(anyhow!("No current session selected.")),
+        }
+    };
+
+    let mut results = Vec::new();
+    for session in sessions_to_update {
+        let worktree_path = project_path.join(&session);
+        if worktree_path.exists() {
+            println!("Updating session '{}' with base '{}'...", session, base_branch);
+            match git::rebase(&worktree_path, &base_branch) {
+                Ok(_) => results.push(format!("Session '{}' updated successfully.", session)),
+                Err(e) => results.push(format!("Failed to update session '{}': {}", session, e)),
+            }
+        } else {
+            results.push(format!("Worktree for session '{}' does not exist at '{}'.", session, worktree_path.display()));
+        }
+    }
+
+    Ok(results.join("\n"))
 }
