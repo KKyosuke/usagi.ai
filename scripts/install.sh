@@ -4,7 +4,7 @@ set -e
 
 # インストール先ディレクトリ
 USAGI_DIR="$HOME/.usagi"
-BINARY_DIR="$USAGI_DIR/binary"
+BIN_DIR="$USAGI_DIR/bin"
 
 # OS/Arch 判別とダウンロード
 function download_binary() {
@@ -54,8 +54,8 @@ if [ ! -f "usagi" ] && [ ! -f "usagi.exe" ]; then
 fi
 
 # ディレクトリ作成
-echo "Creating directory $BINARY_DIR..."
-mkdir -p "$BINARY_DIR"
+echo "Creating directory $BIN_DIR..."
+mkdir -p "$BIN_DIR"
 
 # バイナリの移動 (カレントディレクトリにある想定)
 BINARY_NAME="usagi"
@@ -64,14 +64,14 @@ if [ -f "usagi.exe" ]; then
 fi
 
 if [ -f "$BINARY_NAME" ]; then
-    echo "Installing $BINARY_NAME to $BINARY_DIR..."
-    mv "$BINARY_NAME" "$BINARY_DIR/"
+    echo "Installing $BINARY_NAME to $BIN_DIR..."
+    mv "$BINARY_NAME" "$BIN_DIR/"
 else
     # 予備的なチェック（リネームされていない場合）
     SEARCHED_BIN=$(ls usagi usagi.exe 2>/dev/null | head -n 1)
     if [ -n "$SEARCHED_BIN" ]; then
-        echo "Installing $SEARCHED_BIN as usagi to $BINARY_DIR..."
-        mv "$SEARCHED_BIN" "$BINARY_DIR/usagi"
+        echo "Installing $SEARCHED_BIN as usagi to $BIN_DIR..."
+        mv "$SEARCHED_BIN" "$BIN_DIR/usagi"
         BINARY_NAME="usagi"
     else
         echo "Error: usagi binary not found in current directory."
@@ -80,13 +80,13 @@ else
 fi
 
 # 権限変更
-echo "Changing permissions for $BINARY_DIR/$BINARY_NAME..."
-chmod +x "$BINARY_DIR/$BINARY_NAME"
+echo "Changing permissions for $BIN_DIR/$BINARY_NAME..."
+chmod +x "$BIN_DIR/$BINARY_NAME"
 
 echo ""
-echo "Successfully installed usagi to $BINARY_DIR"
+echo "Successfully installed usagi to $BIN_DIR"
 echo ""
 echo "Please add the following line to your shell configuration file (e.g., ~/.bashrc, ~/.zshrc):"
-echo "  export PATH=\"\$PATH:$BINARY_DIR\""
+echo "  export PATH=\"\$PATH:$BIN_DIR\""
 echo ""
 echo "After adding, restart your shell or run 'source <your-rc-file>' to apply the changes."
