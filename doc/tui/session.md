@@ -2,8 +2,8 @@
 
 ## 概要
 
-`session` コマンドは、新しい作業セッション（Git ブランチ＋ Git worktree）を作成します。
-新しいブランチを作成し、そのブランチに対応する worktree を自動的にセットアップします。
+`session` コマンドは、作業セッション（Git ブランチ＋ Git worktree）を管理します。
+新しいブランチと worktree の作成（`start`）、およびそれらの削除（`close`）を行います。
 
 ## 使い方
 
@@ -23,6 +23,19 @@ session start <BRANCH> [--base <BASE_BRANCH>]
 |---|---|---|
 | `<BRANCH>` | ✅ | 作成するブランチ名 |
 | `--base <BASE_BRANCH>` | — | ベースにするブランチ（省略時はリモートのデフォルトブランチ） |
+
+### `close` — セッションを終了して削除
+
+```
+session close <BRANCH>
+```
+
+| 引数 | 必須 | 説明 |
+|---|---|---|
+| `<BRANCH>` | ✅ | 終了・削除するブランチ名 |
+
+`close` を実行すると、対応する Git worktree が削除され、**ローカルブランチも強制削除（`git branch -D`）されます。**
+作業内容が保存（commit/push）されていることを確認してから実行してください。
 
 ## 例
 

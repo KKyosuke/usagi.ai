@@ -12,7 +12,7 @@
 | [`close`](./close.md) | `close` | セッションを閉じてプロジェクト選択画面へ戻る |
 | [`history`](./history.md) | `history` | コマンド実行履歴を表示する |
 | [`man`](./man.md) | `man [COMMAND]` | コマンドのヘルプを表示する |
-| [`session`](./session.md) | `session start <BRANCH>` | 新しいセッション（ブランチ＋worktree）を作成する |
+| [`session`](./session.md) | `session <SUBCOMMAND>` | セッション（ブランチ＋worktree）を管理する |
 | [`space`](./space.md) | `space <WORKTREE>` | ワークスペース（worktree）を切り替える |
 
 ## オートコンプリートの使い方
