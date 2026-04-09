@@ -13,9 +13,8 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
 
     std::env::set_current_dir(&project_path).context(format!("Failed to change directory to {}", project_path.display()))?;
 
-    // 3. ワークツリー一覧の作成 (main + state.worktrees)
-    let mut worktrees = vec!["main".to_string()];
-    worktrees.extend(state.worktrees.clone());
+    // 3. ワークツリー一覧の作成 (state.worktrees)
+    let mut worktrees: Vec<String> = state.worktrees.iter().map(|w| w.branch.clone()).collect();
 
     // 4. TUI 画面の表示
     let term = Term::stdout();
@@ -344,8 +343,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     // 状態を再読み込み
                                     if let Ok(new_state) = get_project_state(&project_path) {
                                         state = new_state;
-                                        worktrees = vec!["main".to_string()];
-                                        worktrees.extend(state.worktrees.clone());
+                                        worktrees = state.worktrees.iter().map(|w| w.branch.clone()).collect();
                                         if let Some(current_wt) = &state.current_worktree {
                                             if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
                                                 selected_index = idx;
@@ -384,8 +382,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
 
                                     // 状態を反映
                                     state = new_state;
-                                    worktrees = vec!["main".to_string()];
-                                    worktrees.extend(state.worktrees.clone());
+                                    worktrees = state.worktrees.iter().map(|w| w.branch.clone()).collect();
                                     if let Some(current_wt) = &state.current_worktree {
                                         if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
                                             selected_index = idx;

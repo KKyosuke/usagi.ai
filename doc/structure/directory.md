@@ -40,7 +40,20 @@
 ```json
 {
   "initialized": true,
-  "worktrees": ["my-feature", "hotfix"],
+  "worktrees": [
+    {
+      "branch": "main",
+      "directory": "main",
+      "default": true,
+      "modifiedAt": "2026-04-09 20:01 UTC"
+    },
+    {
+      "branch": "my-feature",
+      "directory": "my-feature",
+      "default": false,
+      "modifiedAt": "2026-04-09 20:01 UTC"
+    }
+  ],
   "current_worktree": "my-feature",
   "history": [
     "session start my-feature",
@@ -52,8 +65,8 @@
 | フィールド | 型 | 説明 |
 |---|---|---|
 | `initialized` | `bool` | プロジェクトが初期化済みかどうか |
-| `worktrees` | `Vec<String>` | 作成された worktree 名の一覧（`main` は含まない） |
-| `current_worktree` | `String \| null` | 現在アクティブな worktree 名（`main` の場合は `null`） |
+| `worktrees` | `Vec<Worktree>` | 作成された worktree オブジェクトの一覧 |
+| `current_worktree` | `String | null` | 現在アクティブな branch 名（`main` の場合は `null`） |
 | `history` | `Vec<String>` | TUI コマンドの実行履歴 |
 
 ### `main/`

@@ -137,3 +137,13 @@ pub fn rebase(worktree_path: &Path, base_branch: &str) -> Result<()> {
     }
     Ok(())
 }
+
+/// Returns the current branch name of the repository at `repo_path`.
+pub fn get_current_branch(repo_path: &Path) -> Result<String> {
+    let repo = git2::Repository::open(repo_path)
+        .context(format!("Failed to open repository at {}", repo_path.display()))?;
+    let head = repo.head().context("Failed to get HEAD")?;
+    let branch = head.shorthand()
+        .ok_or_else(|| anyhow!("HEAD is not a branch"))?;
+    Ok(branch.to_string())
+}

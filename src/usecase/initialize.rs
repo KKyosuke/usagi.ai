@@ -1,7 +1,7 @@
 use anyhow::{Result, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::domain::project::ProjectState;
+use crate::domain::project::{ProjectState, Worktree};
 use crate::infrastructure::{git, global_registry};
 
 /// Initialises a new usagi project.
@@ -40,10 +40,25 @@ pub fn run(
     }
     fs::create_dir_all(usagi_dir).context("Failed to create .usagi directory")?;
 
+    let main_dir = Path::new("main");
+    if !main_dir.exists() {
+        println!("Cloning repository into main/...");
+        git::clone(repository_url, main_dir, branch.as_deref())?;
+    } else {
+        println!("Warning: main/ directory already exists. Skipping clone.");
+    }
+
+    let current_branch = git::get_current_branch(main_dir)?;
+
     let mut state = ProjectState {
         initialized: true,
-        worktrees: vec![],
-        current_worktree: Some("main".to_string()),
+        worktrees: vec![Worktree {
+            branch: current_branch.clone(),
+            directory: "main".to_string(),
+            default: true,
+            modifiedAt: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+        }],
+        current_worktree: Some(current_branch),
         history: vec![],
         last_updated: None,
     };
@@ -52,14 +67,6 @@ pub fn run(
         serde_json::to_string_pretty(&state).context("Failed to serialize project state")?;
     fs::write(usagi_dir.join("state.json"), state_json)
         .context("Failed to write state.json")?;
-
-    let main_dir = Path::new("main");
-    if !main_dir.exists() {
-        println!("Cloning repository into main/...");
-        git::clone(repository_url, main_dir, branch.as_deref())?;
-    } else {
-        println!("Warning: main/ directory already exists. Skipping clone.");
-    }
 
     let config_path = Path::new("usagi.config");
     if !config_path.exists() {

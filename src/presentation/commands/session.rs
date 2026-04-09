@@ -3,6 +3,7 @@ use std::path::Path;
 use clap::{Parser, Subcommand, CommandFactory};
 use crate::infrastructure::project_state::{get_project_state, save_project_state};
 use crate::infrastructure::git;
+use crate::domain::project::Worktree;
 use crate::presentation::commands::Command;
 
 pub struct SessionCommand;
@@ -136,8 +137,15 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
     git::create_worktree(project_path, branch, &worktree_path, &base_branch)?;
 
     let mut state = get_project_state(project_path)?;
-    if !state.worktrees.contains(&branch.to_string()) {
-        state.worktrees.push(branch.to_string());
+    if !state.worktrees.iter().any(|w| w.branch == branch) {
+        let mut worktree = Worktree {
+            branch: branch.to_string(),
+            directory: branch.to_string(),
+            default: false,
+            modifiedAt: "".to_string(),
+        };
+        worktree.update_modified_at();
+        state.worktrees.push(worktree);
     }
     state.current_worktree = Some(branch.to_string());
     state.update_last_updated();
@@ -149,7 +157,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
 fn close_session(branch: &str, project_path: &Path) -> Result<String> {
     let mut state = get_project_state(project_path)?;
 
-    if !state.worktrees.contains(&branch.to_string()) {
+    if !state.worktrees.iter().any(|w| w.branch == branch) {
         return Err(anyhow!("Session '{}' not found in project state.", branch));
     }
 
@@ -160,9 +168,9 @@ fn close_session(branch: &str, project_path: &Path) -> Result<String> {
 
     git::delete_branch(project_path, branch)?;
 
-    state.worktrees.retain(|w| w != branch);
+    state.worktrees.retain(|w| w.branch != branch);
     if state.current_worktree.as_deref() == Some(branch) {
-        state.current_worktree = state.worktrees.first().cloned();
+        state.current_worktree = state.worktrees.first().map(|w| w.branch.clone());
     }
     state.update_last_updated();
     save_project_state(project_path, &state)?;
@@ -191,7 +199,7 @@ fn update_sessions(all: bool, base: Option<String>, project_path: &Path) -> Resu
         if state.worktrees.is_empty() {
             return Ok("No sessions found to update.".to_string());
         }
-        state.worktrees.clone()
+        state.worktrees.iter().map(|w| w.branch.clone()).collect::<Vec<String>>()
     } else {
         match state.current_worktree {
             Some(ref w) => vec![w.clone()],

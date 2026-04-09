@@ -43,10 +43,12 @@ impl Command for SpaceCommand {
             if worktree == "main" {
                 state.current_worktree = None;
             } else {
-                if !state.worktrees.contains(&worktree) {
+                if let Some(w) = state.worktrees.iter_mut().find(|w| w.branch == worktree) {
+                    w.update_modified_at();
+                    state.current_worktree = Some(worktree.clone());
+                } else {
                     return Err(anyhow!("Worktree '{}' does not exist.", worktree));
                 }
-                state.current_worktree = Some(worktree.clone());
             }
             state.update_last_updated();
             save_project_state(project_path, &state)?;
