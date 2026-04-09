@@ -1,5 +1,10 @@
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
+
+/// Project configuration defined in `usagi.config`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProjectConfig {
+    pub repository_url: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Worktree {
@@ -65,8 +70,3 @@ mod tests {
     }
 }
 
-/// Core entity representing the list of registered usagi repositories.
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct Repositories {
-    pub repositories: Vec<PathBuf>,
-}

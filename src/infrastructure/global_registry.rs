@@ -1,7 +1,7 @@
 use anyhow::{Result, Context, anyhow};
 use std::fs;
 use std::path::PathBuf;
-use crate::domain::project::Repositories;
+use crate::domain::usagi::Repositories;
 
 /// Returns the path to the usagi application data directory.
 fn data_dir() -> Result<PathBuf> {

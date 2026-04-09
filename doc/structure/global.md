@@ -62,5 +62,6 @@ flowchart LR
 
 ## 関連ドキュメント
 
+- [プロジェクト設定（usagi.config）](./project_config.md)
 - [`usagi init`](../cli/init.md)
 - [`usagi open`](../cli/open.md)

@@ -26,7 +26,8 @@ src/
 ├── main.rs                      # CLIエントリポイント・ルーティング
 │
 ├── domain/                      # 【ドメイン層】純粋なエンティティ
-│   └── project.rs               # ProjectState, Repositories 構造体
+│   ├── project.rs               # ProjectState, ProjectConfig, Worktree 構造体
+│   └── usagi.rs                 # Repositories 構造体 (グローバル)
 │
 ├── infrastructure/              # 【インフラ層】外部システムとのやりとり
 │   ├── project_state.rs         # プロジェクト単体の永続化 (.usagi/state.json)
@@ -65,7 +66,8 @@ src/
 
 | ファイル | 内容 |
 |---|---|
-| `project.rs` | `ProjectState`（プロジェクトの状態）、`Repositories`（登録済みリポジトリ一覧） |
+| `project.rs` | `ProjectState`（プロジェクトの状態）、`ProjectConfig`（プロジェクトの設定）、`Worktree` |
+| `usagi.rs` | `Repositories`（登録済みリポジトリ一覧：グローバル） |
 
 ### `infrastructure/` — インフラ層
 
@@ -156,4 +158,5 @@ sequenceDiagram
 
 - [モードの種類と切り替え](./mode.md)
 - [グローバルDB（共通リポジトリ管理）](./global.md)
+- [プロジェクト設定（usagi.config）](./project_config.md)
 - [初期化後のディレクトリ構造](./directory.md)
