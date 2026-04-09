@@ -142,7 +142,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
             branch: branch.to_string(),
             directory: branch.to_string(),
             default: false,
-            modifiedAt: "".to_string(),
+            modified_at: "".to_string(),
         };
         worktree.update_modified_at();
         state.worktrees.push(worktree);

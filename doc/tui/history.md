@@ -35,7 +35,7 @@ history
       "branch": "main",
       "directory": "main",
       "default": true,
-      "modifiedAt": "2026-04-09 20:01 UTC"
+      "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
   "current_worktree": "main",

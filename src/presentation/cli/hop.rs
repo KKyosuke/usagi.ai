@@ -4,6 +4,7 @@ use console::{Term, Key, style, measure_text_width};
 use crate::infrastructure::project_state::get_project_state;
 use crate::presentation::tui::mode::AppMode;
 use crate::presentation::tui::screen::AlternateScreenGuard;
+use crate::presentation::tui::layout;
 use crate::presentation::commands;
 
 pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
@@ -37,14 +38,14 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         }
     }
 
-    let mut command_history: Vec<String> = state.history.clone();
+    let mut command_history: Vec<String> = state.history.iter().filter(|s| !s.trim().is_empty()).cloned().collect();
     
     // 画面全体を一度クリア
     term.clear_screen()?;
 
     loop {
         let (height, width) = term.size();
-        let left_width = 25; 
+        let left_width = 30; 
         let right_width = (width as usize).saturating_sub(left_width).saturating_sub(3); // 3 for separators
         
         // ヘッダー表示
@@ -62,27 +63,34 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
         for i in 0..(height as usize - 6) {
             let left_content = if i == 0 {
                 style("workspace").bold().to_string()
-            } else if i - 1 < worktrees.len() {
-                let wt_idx = i - 1;
-                let wt = &worktrees[wt_idx];
-                
-                let mark_char = "●";
-                let mark_width = measure_text_width(mark_char);
-                let cursor = if wt_idx == selected_index && !is_command_mode { ">" } else { " " };
-                let is_selected = wt_idx == selected_index;
-                let mark = if is_selected {
-                    style(mark_char).green().to_string()
-                } else {
-                    " ".repeat(mark_width)
-                };
-                
-                if wt_idx == selected_index {
-                    format!("{} {}  {}", cursor, mark, style(wt).cyan().bold())
-                } else {
-                    format!("{} {}  {}", cursor, mark, wt)
-                }
             } else {
-                "".to_string()
+                let wt_idx = (i - 1) / 2;
+                if wt_idx < state.worktrees.len() {
+                    let wt = &state.worktrees[wt_idx];
+                    let is_second_line = (i - 1) % 2 == 1;
+
+                    if !is_second_line {
+                        let mark_char = "●";
+                        let mark_width = measure_text_width(mark_char);
+                        let cursor = if wt_idx == selected_index && !is_command_mode { ">" } else { " " };
+                        let is_selected = wt_idx == selected_index;
+                        let mark = if is_selected {
+                            style(mark_char).green().to_string()
+                        } else {
+                            " ".repeat(mark_width)
+                        };
+                        
+                        if wt_idx == selected_index {
+                            format!("{} {}  {}", cursor, mark, style(&wt.branch).cyan().bold())
+                        } else {
+                            format!("{} {}  {}", cursor, mark, &wt.branch)
+                        }
+                    } else {
+                        format!("   {}", style(layout::format_modified_at(&wt.modified_at)).dim())
+                    }
+                } else {
+                    "".to_string()
+                }
             };
 
             // 左側の幅を調整
@@ -304,11 +312,12 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
             }
             Key::Enter => {
                 if is_command_mode {
-                    if !current_input.is_empty() {
+                    if !current_input.trim().is_empty() {
                         let parts: Vec<String> = current_input.split_whitespace().map(|s| s.to_string()).collect();
                         if !parts.is_empty() {
                             let mut cmd_to_execute = current_input.clone();
                             let mut parts = parts;
+                            let selected_worktree = worktrees[selected_index].clone();
 
                             // If cmd is a number, try to get from history
                             if let Ok(index) = parts[0].parse::<usize>() {
@@ -344,12 +353,15 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     if let Ok(new_state) = get_project_state(&project_path) {
                                         state = new_state;
                                         worktrees = state.worktrees.iter().map(|w| w.branch.clone()).collect();
-                                        if let Some(current_wt) = &state.current_worktree {
+                                        
+                                        if let Some(idx) = worktrees.iter().position(|wt| wt == &selected_worktree) {
+                                            selected_index = idx;
+                                        } else if let Some(current_wt) = &state.current_worktree {
                                             if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
                                                 selected_index = idx;
                                             }
                                         } else {
-                                            selected_index = 0; // main を選択
+                                            selected_index = 0;
                                         }
                                     }
                                 }
@@ -360,13 +372,17 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     Ok(output) => {
                                         if !output.is_empty() {
                                             for line in output.lines() {
-                                                command_history.push(line.to_string());
+                                                if !line.trim().is_empty() {
+                                                    command_history.push(line.to_string());
+                                                }
                                             }
                                         }
                                     }
                                     Err(e) => {
                                         for line in e.to_string().lines() {
-                                            command_history.push(line.to_string());
+                                            if !line.trim().is_empty() {
+                                                command_history.push(line.to_string());
+                                            }
                                         }
                                     }
                                 }
@@ -383,9 +399,26 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                                     // 状態を反映
                                     state = new_state;
                                     worktrees = state.worktrees.iter().map(|w| w.branch.clone()).collect();
-                                    if let Some(current_wt) = &state.current_worktree {
-                                        if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                    
+                                    let mut updated = false;
+                                    if cmd_name == "space" {
+                                        if let Some(current_wt) = &state.current_worktree {
+                                            if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                selected_index = idx;
+                                                updated = true;
+                                            }
+                                        }
+                                    }
+
+                                    if !updated {
+                                        if let Some(idx) = worktrees.iter().position(|wt| wt == &selected_worktree) {
                                             selected_index = idx;
+                                        } else if let Some(current_wt) = &state.current_worktree {
+                                            if let Some(idx) = worktrees.iter().position(|wt| wt == current_wt) {
+                                                selected_index = idx;
+                                            }
+                                        } else {
+                                            selected_index = 0;
                                         }
                                     }
                                 }
@@ -399,7 +432,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
                         cursor_pos = 0;
                         history_index = None;
                     } else {
-                        is_command_mode = false;
+                        current_input.clear();
                         cursor_pos = 0;
                         history_index = None;
                     }

@@ -6,12 +6,12 @@ pub struct Worktree {
     pub branch: String,
     pub directory: String,
     pub default: bool,
-    pub modifiedAt: String,
+    pub modified_at: String,
 }
 
 impl Worktree {
     pub fn update_modified_at(&mut self) {
-        self.modifiedAt = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
+        self.modified_at = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
     }
 }
 
@@ -45,7 +45,7 @@ mod tests {
                 branch: "main".to_string(),
                 directory: "main".to_string(),
                 default: true,
-                modifiedAt: "".to_string(),
+                modified_at: "".to_string(),
             }],
             current_worktree: Some("main".to_string()),
             history: vec!["test command".to_string()],

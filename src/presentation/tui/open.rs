@@ -20,10 +20,10 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
         layout::show_rabbit(&term);
 
         let menu_items = vec![
-            layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string(), last_updated: None },
-            layout::MenuItem { icon: "".to_string(), label: "New".to_string(), key: "e".to_string(), last_updated: None },
-            layout::MenuItem { icon: "".to_string(), label: "Config".to_string(), key: "c".to_string(), last_updated: None },
-            layout::MenuItem { icon: "".to_string(), label: "Quit".to_string(), key: "q".to_string(), last_updated: None },
+            layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string(), modified_at: None },
+            layout::MenuItem { icon: "".to_string(), label: "New".to_string(), key: "e".to_string(), modified_at: None },
+            layout::MenuItem { icon: "".to_string(), label: "Config".to_string(), key: "c".to_string(), modified_at: None },
+            layout::MenuItem { icon: "".to_string(), label: "Quit".to_string(), key: "q".to_string(), modified_at: None },
         ];
 
         layout::render_side_menu(&term, &menu_items, selected_index);
@@ -126,14 +126,33 @@ pub fn show_project_list_modal(
     loop {
         term.clear_screen()?;
         let (_, width) = term.size();
-        let width = width as usize;
+        let width = if width == 0 { 80 } else { width as usize };
+
+        let mut max_repo_width = 0;
+        for repo in repos {
+            let label = repo.display().to_string();
+            let mut current_width = label.chars().count() + 2; // "> " or "  "
+            if let Ok(state) = crate::infrastructure::project_state::get_project_state(repo) {
+                if let Some(time) = state.last_updated {
+                    let formatted_time = layout::format_modified_at(&time);
+                    let time_width = formatted_time.chars().count() + 3;
+                    if time_width > current_width {
+                        current_width = time_width;
+                    }
+                }
+            }
+            if current_width > max_repo_width {
+                max_repo_width = current_width;
+            }
+        }
+        let left_padding = if width > max_repo_width { (width - max_repo_width) / 2 } else { 0 };
 
         let title = "--- Select Project ---";
         let title_len = title.chars().count();
-        let left_padding = if width > title_len { (width - title_len) / 2 } else { 0 };
+        let title_padding = if width > title_len { (width - title_len) / 2 } else { 0 };
         term.write_line(&format!(
             "{}{}",
-            " ".repeat(left_padding),
+            " ".repeat(title_padding),
             style(title).bold().yellow()
         ))?;
         term.write_line("")?;
@@ -145,8 +164,6 @@ pub fn show_project_list_modal(
             }
 
             let label = repo.display().to_string();
-            let label_len = label.chars().count() + 2;
-            let left_padding = if width > label_len { (width - label_len) / 2 } else { 0 };
 
             if i == selected_index {
                 term.write_line(&format!(
@@ -159,11 +176,12 @@ pub fn show_project_list_modal(
             }
 
             if let Some(time) = last_updated {
-                let time_label = format!("  Last update: {}", time);
-                term.write_line(&format!(
-                    "{}{}",
+                let formatted_time = layout::format_modified_at(&time);
+
+                term.write_line(&format! (
+                    "{}   {}",
                     " ".repeat(left_padding),
-                    style(time_label).dim()
+                    style(formatted_time).dim()
                 ))?;
             }
         }

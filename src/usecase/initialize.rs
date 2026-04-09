@@ -56,7 +56,7 @@ pub fn run(
             branch: current_branch.clone(),
             directory: "main".to_string(),
             default: true,
-            modifiedAt: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+            modified_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
         }],
         current_worktree: Some(current_branch),
         history: vec![],

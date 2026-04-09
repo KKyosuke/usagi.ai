@@ -42,13 +42,13 @@ space main
       "branch": "main",
       "directory": "main",
       "default": true,
-      "modifiedAt": "2026-04-09 20:01 UTC"
+      "modified_at": "2026-04-09 20:01 UTC"
     },
     {
       "branch": "my-feature",
       "directory": "my-feature",
       "default": false,
-      "modifiedAt": "2026-04-09 20:01 UTC"
+      "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
   "current_worktree": "my-feature",
@@ -63,13 +63,13 @@ space main
       "branch": "main",
       "directory": "main",
       "default": true,
-      "modifiedAt": "2026-04-09 20:01 UTC"
+      "modified_at": "2026-04-09 20:01 UTC"
     },
     {
       "branch": "my-feature",
       "directory": "my-feature",
       "default": false,
-      "modifiedAt": "2026-04-09 20:01 UTC"
+      "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
   "current_worktree": null,
