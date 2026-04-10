@@ -49,7 +49,6 @@ src/
     │   └── hop.rs               # `usagi hop` エントリポイント・メインTUIループ
     └── commands/                # TUI内コマンド実装
         ├── mod.rs               # Command トレイト・コマンド一覧
-        ├── ai.rs                # `ai` コマンド
         ├── close.rs             # `close` コマンド
         ├── history.rs           # `history` コマンド
         ├── man.rs               # `man` コマンド
@@ -118,7 +117,6 @@ TUI起動中にコマンド入力欄から実行できるコマンドを定義�
 | ファイル | 内容 |
 |---|---|
 | `mod.rs` | `Command` トレイト定義と、全コマンドのファクトリ関数 |
-| `ai.rs` | AIへのメッセージ送信（`ai <message>`） |
 | `close.rs` | ターミナルを閉じてプロジェクト選択画面に戻る（`close`） |
 | `history.rs` | コマンド履歴の表示（`history`） |
 | `man.rs` | コマンドのヘルプ表示（`man [command]`） |
@@ -156,6 +154,7 @@ sequenceDiagram
 
 ## 関連ドキュメント
 
+- [UI（ユーザーインターフェース）の構成と名称](./ui.md)
 - [モードの種類と切り替え](./mode.md)
 - [グローバルDB（共通リポジトリ管理）](./global.md)
 - [プロジェクト設定（usagi.config）](./project_config.md)

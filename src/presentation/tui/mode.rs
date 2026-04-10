@@ -5,7 +5,6 @@ pub enum AppMode {
     Global,
     SideMenu,
     Command,
-    Execution,
 }
 
 impl AppMode {
@@ -14,7 +13,6 @@ impl AppMode {
             AppMode::Global => "全体モード",
             AppMode::SideMenu => "サイドメニューモード",
             AppMode::Command => "コマンドモード",
-            AppMode::Execution => "実行モード",
         }
     }
 }

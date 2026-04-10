@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 
 /// Project configuration defined in `usagi.config`.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct ProjectConfig {
     pub repository_url: String,
 }

@@ -30,7 +30,7 @@ impl Command for SpaceCommand {
         Some("Usage: space <WORKTREE>".to_string())
     }
 
-    fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {
+    fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
         let cli = match SpaceCli::try_parse_from(args) {
             Ok(cli) => cli,
             Err(e) => {

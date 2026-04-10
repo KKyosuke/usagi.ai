@@ -25,7 +25,7 @@ impl Command for CloseCommand {
         Some("Usage: close".to_string())
     }
 
-    fn run(&self, _args: Vec<String>, _project_path: &Path) -> Result<String> {
+    fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
         Ok("close".to_string())
     }
 }

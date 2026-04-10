@@ -1,6 +1,7 @@
 use anyhow::{Result, Context};
-use console::Key;
+use console::{Key, measure_text_width, strip_ansi_codes, style};
 use crate::presentation::cli::hop::app::HopApp;
+use crate::presentation::cli::hop::ui;
 
 pub fn handle_key(app: &mut HopApp) -> Result<bool> {
     let key = match app.term.read_key() {
@@ -149,6 +150,22 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     let cmd_name = parts[0].clone();
     let is_session_close = cmd_name == "session" && parts.get(1).map(|s| s.as_str()) == Some("close");
     
+    // terminalビューの判定（組み込みコマンド以外はターミナルフォールバックされるため）
+    let built_in_commands = ["close", "history", "man", "session", "space"];
+    app.is_terminal_view = cmd_name == "terminal" || !built_in_commands.contains(&cmd_name.as_str());
+
+    let (_term_height, term_width) = app.term.size();
+    let left_width = 30;
+    let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+
+    if cmd_name != "close" && !is_session_close {
+        let prompt_sign = if app.is_terminal_view { "$" } else { ">" };
+        let prompt = format!("{} {} {}", style(&selected_worktree).cyan(), prompt_sign, cmd_to_execute);
+        push_to_history(&mut app.command_history, &prompt, right_width);
+    }
+
+    ui::render(app)?;
+
     let result: Result<String> = if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
         if cmd_name == "space" {
             app.is_command_mode = false;
@@ -156,11 +173,22 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
                 parts.push(app.worktrees[app.selected_index].clone());
             }
         }
-        command.run(parts, &app.project_path)
+        command.run(parts, &app.project_path, &selected_worktree, &app.term)
     } else {
-        let available: Vec<String> = app.commands.iter().map(|c| c.name().to_string()).collect();
-        Ok(format!("Unknown command: {}\nAvailable commands: {}", cmd_name, available.join(", ")))
+        // Fallback to terminal command
+        if let Some(terminal_command) = app.commands.iter().find(|c| c.name() == "terminal") {
+            let mut terminal_args = vec!["terminal".to_string()];
+            terminal_args.extend(parts);
+            terminal_command.run(terminal_args, &app.project_path, &selected_worktree, &app.term)
+        } else {
+            let available: Vec<String> = app.commands.iter().map(|c| c.name().to_string()).collect();
+            Ok(format!("Unknown command: {}\nAvailable commands: {}", cmd_name, available.join(", ")))
+        }
     };
+
+    let (term_height, term_width) = app.term.size();
+    let left_width = 30;
+    let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
 
     if cmd_name == "close" || is_session_close {
         if result.is_ok() {
@@ -178,24 +206,12 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
             }
         }
     } else {
-        // 履歴に追加
-        app.command_history.push(cmd_to_execute.clone());
         match result {
             Ok(output) => {
-                if !output.is_empty() {
-                    for line in output.lines() {
-                        if !line.trim().is_empty() {
-                            app.command_history.push(line.to_string());
-                        }
-                    }
-                }
+                push_to_history(&mut app.command_history, &output, right_width);
             }
             Err(e) => {
-                for line in e.to_string().lines() {
-                    if !line.trim().is_empty() {
-                        app.command_history.push(line.to_string());
-                    }
-                }
+                push_to_history(&mut app.command_history, &e.to_string(), right_width);
             }
         }
 
@@ -225,8 +241,7 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
         }
     }
 
-    let (_, height) = app.term.size();
-    if app.command_history.len() > (height as usize - 7) {
+    while app.command_history.len() > (term_height as usize - 7).max(1) {
         app.command_history.remove(0);
     }
     app.current_input.clear();
@@ -268,5 +283,49 @@ fn handle_tab_completion(app: &mut HopApp) {
                 app.cursor_pos = app.current_input.chars().count();
             }
         }
+    }
+}
+
+fn push_to_history(history: &mut Vec<String>, text: &str, max_width: usize) {
+    if text.is_empty() {
+        return;
+    }
+    for line in text.lines() {
+        let mut current = line.to_string();
+        if current.is_empty() {
+            history.push(" ".to_string());
+            continue;
+        }
+        while measure_text_width(&strip_ansi_codes(&current)) > max_width && max_width > 0 {
+            let mut split_idx = 0;
+            let mut width = 0;
+            let mut in_escape = false;
+            
+            for (i, c) in current.char_indices() {
+                if c == '\x1b' {
+                    in_escape = true;
+                } else if in_escape {
+                    if c >= '@' && c <= '~' {
+                        in_escape = false;
+                    }
+                } else {
+                    let c_width = measure_text_width(&c.to_string());
+                    if width + c_width > max_width {
+                        break;
+                    }
+                    width += c_width;
+                }
+                split_idx = i + c.len_utf8();
+            }
+            
+            if split_idx == 0 || split_idx == current.len() {
+                break;
+            }
+            
+            let (head, tail) = current.split_at(split_idx);
+            history.push(head.to_string());
+            current = tail.to_string();
+        }
+        history.push(current);
     }
 }

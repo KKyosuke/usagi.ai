@@ -18,6 +18,7 @@ pub struct HopApp {
     pub history_index: Option<usize>,
     pub commands: Vec<Box<dyn Command>>,
     pub command_history: Vec<String>,
+    pub is_terminal_view: bool,
 }
 
 impl HopApp {
@@ -57,6 +58,7 @@ impl HopApp {
             history_index: None,
             commands,
             command_history,
+            is_terminal_view: false,
         })
     }
 

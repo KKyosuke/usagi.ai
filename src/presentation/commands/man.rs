@@ -33,7 +33,7 @@ impl Command for ManCommand {
         Some("Usage: man [COMMAND]".to_string())
     }
 
-    fn run(&self, args: Vec<String>, _project_path: &Path) -> Result<String> {
+    fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
         let commands = get_commands();
         if args.len() > 1 {
             let cmd_name = &args[1];

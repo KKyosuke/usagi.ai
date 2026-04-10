@@ -1,5 +1,5 @@
 use anyhow::Result;
-use console::{style, measure_text_width};
+use console::{style, measure_text_width, strip_ansi_codes};
 use crate::presentation::cli::hop::app::HopApp;
 use crate::presentation::tui::layout;
 
@@ -52,11 +52,17 @@ pub fn render(app: &HopApp) -> Result<()> {
 
         // 左側の幅を調整
         let left_padding = left_width.saturating_sub(measure_text_width(&left_content));
-        let left_display = format!("{}{:width$}", left_content, "", width = left_padding);
+        let left_display = format!("{}{}", left_content, " ".repeat(left_padding));
         
         // 右側の表示内容 (履歴)
         let right_content = if i == 0 {
-            format!("Welcome to usagi terminal! (Workspace: {})", app.worktrees[app.selected_index])
+            let label = if app.is_terminal_view {
+                style("TERMINAL").bold().cyan().to_string()
+            } else {
+                style("Welcome to usagi terminal!").bold().to_string()
+            };
+            let wt = &app.state.worktrees[app.selected_index];
+            format!("{} (Dir: {})", label, style(&wt.directory).dim())
         } else {
             let history_idx = i.saturating_sub(1);
             if history_idx < app.command_history.len() {
@@ -66,8 +72,8 @@ pub fn render(app: &HopApp) -> Result<()> {
             }
         };
         
-        let right_padding = right_width.saturating_sub(measure_text_width(&right_content));
-        let right_display = format!("{}{:width$}", right_content, "", width = right_padding);
+        let right_padding = right_width.saturating_sub(measure_text_width(&strip_ansi_codes(&right_content)));
+        let right_display = format!("{}{}", right_content, " ".repeat(right_padding));
 
         term.write_line(&format!("{} | {}", left_display, right_display))?;
     }

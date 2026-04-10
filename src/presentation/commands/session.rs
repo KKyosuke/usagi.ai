@@ -29,7 +29,7 @@ impl Command for SessionCommand {
         HELP
     }
 
-    fn run(&self, args: Vec<String>, project_path: &Path) -> Result<String> {
+    fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
         let cli = match SessionCli::try_parse_from(args) {
             Ok(cli) => cli,
             Err(e) => {

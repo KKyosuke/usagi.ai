@@ -29,7 +29,7 @@ impl Command for HistoryCommand {
         Some("Usage: history".to_string())
     }
 
-    fn run(&self, _args: Vec<String>, project_path: &Path) -> Result<String> {
+    fn run(&self, _args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
         let state = get_project_state(project_path)?;
         let mut output = String::new();
 
