@@ -8,7 +8,6 @@
 
 | コマンド | 使い方 | 説明 |
 |---|---|---|
-| [`ai`](./ai.md) | `ai <MESSAGE>` | AI にメッセージを送信する |
 | [`close`](./close.md) | `close` | セッションを閉じてプロジェクト選択画面へ戻る |
 | [`history`](./history.md) | `history` | コマンド実行履歴を表示する |
 | [`man`](./man.md) | `man [COMMAND]` | コマンドのヘルプを表示する |
