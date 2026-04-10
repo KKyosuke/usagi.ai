@@ -115,6 +115,9 @@ pub fn render(app: &HopApp) -> Result<()> {
 }
 
 fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
+    if app.current_input.is_empty() {
+        return Ok(());
+    }
     let term = &app.term;
     let parts: Vec<&str> = app.current_input.split_whitespace().collect();
     let mut suggestions: Vec<(String, String)> = Vec::new();
