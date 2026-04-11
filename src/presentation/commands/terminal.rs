@@ -24,16 +24,9 @@ Example: terminal ls -la"
 
     fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, term: &console::Term) -> Result<String> {
         if args.is_empty() {
-            return Ok("Usage: terminal <command> [args]".to_string());
+            return Ok("".to_string());
         }
 
-        let state = get_project_state(project_path)?;
-        
-        let worktree = state.worktrees.iter().find(|w| w.branch == current_worktree)
-            .ok_or_else(|| anyhow!("Worktree '{}' not found", current_worktree))?;
-
-        let dir = project_path.join(&worktree.directory);
-        
         // 元のコマンド文字列を再構築
         let cmd_to_run = if args[0] == "terminal" {
             args[1..].join(" ")
@@ -42,8 +35,15 @@ Example: terminal ls -la"
         };
 
         if cmd_to_run.is_empty() {
-            return Ok("Usage: terminal <command> [args]".to_string());
+            return Ok("".to_string());
         }
+
+        let state = get_project_state(project_path)?;
+        
+        let worktree = state.worktrees.iter().find(|w| w.branch == current_worktree)
+            .ok_or_else(|| anyhow!("Worktree '{}' not found", current_worktree))?;
+
+        let dir = project_path.join(&worktree.directory);
 
         let (term_height, term_width) = term.size();
         let left_width = 30;
@@ -119,5 +119,27 @@ mod tests {
         assert_eq!(cmd.name(), "terminal");
         assert!(!cmd.description().is_empty());
         assert!(cmd.help().contains("PTY"));
+    }
+
+    #[test]
+    fn test_terminal_run_empty_args() {
+        let cmd = TerminalCommand;
+        // project_path はダミーで良いはず（argsが空ならアクセスされない）
+        let project_path = Path::new(".");
+        let term = console::Term::stdout();
+        let result = cmd.run(vec![], project_path, "main", &term);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[test]
+    fn test_terminal_run_terminal_only() {
+        let cmd = TerminalCommand;
+        let project_path = Path::new(".");
+        let term = console::Term::stdout();
+        
+        let result = cmd.run(vec!["terminal".to_string()], project_path, "main", &term);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
     }
 }
