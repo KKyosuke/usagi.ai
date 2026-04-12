@@ -186,6 +186,11 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
         }
     };
 
+    // Re-enter alternate screen and hide cursor to ensure TUI state
+    let _ = app.term.write_str("\x1b[?1049h");
+    let _ = app.term.hide_cursor();
+    let _ = app.term.flush();
+
     let (term_height, term_width) = app.term.size();
     let left_width = 30;
     let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
