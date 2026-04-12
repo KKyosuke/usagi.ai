@@ -151,7 +151,7 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     let is_session_close = cmd_name == "session" && parts.get(1).map(|s| s.as_str()) == Some("close");
     
     // terminalビューの判定（組み込みコマンド以外はターミナルフォールバックされるため）
-    let built_in_commands = ["close", "history", "man", "session", "space"];
+    let built_in_commands = ["close", "doctor", "history", "man", "session", "space"];
     app.is_terminal_view = cmd_name == "terminal" || !built_in_commands.contains(&cmd_name.as_str());
 
     let (_term_height, term_width) = app.term.size();

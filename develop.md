@@ -1,5 +1,24 @@
 # Develop
 
+## 開発の前提条件
+
+`usagi.ai` の開発および実行には以下のツールが必要です。
+
+### 必須ツール
+- **Rust** (Cargo): ビルドに使用します。
+- **Git**: リポジトリ操作に使用します。
+- **bash** (macOS/Linux) または **cmd.exe** (Windows): ターミナル機能に使用します。
+
+### 推奨ツール
+- **Node.js / npm**
+- **Python**
+
+依存関係の詳細は `doctor` コマンドで確認できます。
+
+```bash
+cargo run -- doctor
+```
+
 ## 開発環境でのテスト方法 (playground)
 
 `playground` ディレクトリ内で `usagi` コマンドをテストする手順です。

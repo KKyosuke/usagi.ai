@@ -6,6 +6,21 @@ A tool designed for efficient use of AI Agent CLIs.
 
 `usagi.ai` helps developers manage repositories and configurations when working with AI agents, providing a streamlined workflow for initialization and project management.
 
+## Prerequisites
+
+`usagi.ai` requires the following tools to be installed on your system:
+
+- **Git** (Essential): Used for cloning repositories and managing worktrees.
+- **Bash** (macOS/Linux) or **cmd.exe** (Windows) (Essential): Used for the interactive terminal.
+- **Node.js / npm** (Optional): Often required by AI agents and development environments.
+- **Python** (Optional): Often required by AI agents and scripts.
+
+You can check if these are installed by running:
+
+```bash
+usagi doctor
+```
+
 ## Installation
 
 ### From Source (using Cargo)
@@ -50,6 +65,18 @@ curl -L https://github.com/KKyosuke/usagi.ai/releases/latest/download/usagi-linu
 Download the latest `usagi-windows-amd64.zip` from the [Releases](https://github.com/KKyosuke/usagi.ai/releases) page, extract it, and run `install.sh` (using Git Bash) or manually add the binary to your PATH.
 
 ## Quick Start
+
+### 1. Check Dependencies
+
+Ensure your system has the required tools:
+
+```bash
+usagi doctor
+```
+
+For more details on dependencies, see [doc/cli/doctor.md](doc/cli/doctor.md).
+
+### 2. Initialize a Repository
 
 Initialize a repository with:
 

@@ -30,6 +30,8 @@ enum Commands {
     Open,
     /// Hop into usagi terminal
     Hop,
+    /// Check system dependencies
+    Doctor,
 }
 
 fn main() -> Result<()> {
@@ -43,6 +45,10 @@ fn main() -> Result<()> {
         Some(Commands::Hop) => {
             let current_dir = std::env::current_dir()?;
             presentation::cli::hop::run(current_dir, None)?;
+        }
+        Some(Commands::Doctor) => {
+            let doctor = presentation::commands::doctor::DoctorCommand;
+            println!("{}", doctor.check_all());
         }
         Some(Commands::Open) | None => {
             presentation::cli::open::run()?;

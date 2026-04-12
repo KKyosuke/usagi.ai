@@ -3,6 +3,7 @@ use std::path::Path;
 use console::Term;
 
 pub mod close;
+pub mod doctor;
 pub mod history;
 pub mod man;
 pub mod session;
@@ -27,6 +28,7 @@ pub trait Command: Send + Sync {
 pub fn get_commands() -> Vec<Box<dyn Command>> {
     vec![
         Box::new(close::CloseCommand),
+        Box::new(doctor::DoctorCommand),
         Box::new(history::HistoryCommand),
         Box::new(man::ManCommand),
         Box::new(session::SessionCommand),

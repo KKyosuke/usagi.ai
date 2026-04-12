@@ -9,6 +9,7 @@
 | コマンド | 使い方 | 説明 |
 |---|---|---|
 | [`close`](./close.md) | `close` | セッションを閉じてプロジェクト選択画面へ戻る |
+| [`doctor`](./doctor.md) | `doctor` | 依存関係のチェック |
 | [`history`](./history.md) | `history` | コマンド実行履歴を表示する |
 | [`man`](./man.md) | `man [COMMAND]` | コマンドのヘルプを表示する |
 | [`session`](./session.md) | `session <SUBCOMMAND>` | セッション（ブランチ＋worktree）を管理する |
