@@ -16,3 +16,6 @@ console = "0.15"
 ctrlc = "3.4"
 chrono = { version = "0.4.44", features = ["clock"] }
 portable-pty = "0.8"
+vt100 = "0.15"
+ratatui = "0.26"
+crossterm = "0.27"
