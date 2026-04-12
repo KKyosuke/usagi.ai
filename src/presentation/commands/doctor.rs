@@ -2,6 +2,8 @@ use anyhow::Result;
 use std::path::Path;
 use std::process::Command as ProcessCommand;
 use crate::presentation::commands::Command;
+use crate::presentation::tui::layout::animate_rabbit;
+use console::style;
 
 pub struct DoctorCommand;
 
@@ -19,7 +21,8 @@ impl Command for DoctorCommand {
 Usage: doctor"
     }
 
-    fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &console::Term) -> Result<String> {
+        animate_rabbit(term, 1200, false);
         Ok(self.check_all())
     }
 }
@@ -44,23 +47,45 @@ impl DoctorCommand {
         results.push(check_command("python3", &["--version"], false));
         results.push(check_command("python", &["--version"], false));
 
-        let mut output = String::from("Checking dependencies...\n\n");
+        let mut output = format!("{}\n\n", style("🐰 USAGI DOCTOR is checking your system... 🐰").magenta().bold());
         for (name, success, info, essential) in results {
-            let status = if success { 
-                "✅" 
+            let status_icon = if success { 
+                "🥕" 
             } else if essential {
                 "❌"
             } else {
-                "⚠️"
+                "🐾"
             };
-            let essential_str = if essential { "(Essential)" } else { "(Optional) " };
-            output.push_str(&format!("{} {:10} {:12} {}\n", status, name, essential_str, info));
+            
+            let padded_name = format!("{:<10}", name);
+            let name_str = if success {
+                style(padded_name).green().bold().to_string()
+            } else if essential {
+                style(padded_name).red().bold().to_string()
+            } else {
+                style(padded_name).yellow().to_string()
+            };
+
+            let label = if essential { "(Essential)" } else { "(Optional) " };
+            let essential_label = if essential { 
+                style(label).cyan().to_string()
+            } else { 
+                style(label).dim().to_string() 
+            };
+            
+            output.push_str(&format!("{} {} {} {}\n", status_icon, name_str, essential_label, style(info).dim()));
         }
 
         if output.contains("❌") {
-            output.push_str("\nSome essential commands are missing. Please install them to use usagi.ai properly.\n");
+            output.push_str(&format!(
+                "\n{}\n", 
+                style("😭 Oh no! Some essential carrots are missing. Please install them to let usagi jump!").red().bold()
+            ));
         } else {
-            output.push_str("\nAll essential commands are available.\n");
+            output.push_str(&format!(
+                "\n{}\n", 
+                style("✨ Everything looks fluffy! Usagi is ready to hop! ✨").green().bold()
+            ));
         }
 
         output

@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
+use crate::presentation::commands::Command;
 
 mod domain;
 mod infrastructure;
@@ -48,7 +49,9 @@ fn main() -> Result<()> {
         }
         Some(Commands::Doctor) => {
             let doctor = presentation::commands::doctor::DoctorCommand;
-            println!("{}", doctor.check_all());
+            let current_dir = std::env::current_dir()?;
+            let term = console::Term::stdout();
+            println!("{}", doctor.run(vec![], &current_dir, "", &term)?);
         }
         Some(Commands::Open) | None => {
             presentation::cli::open::run()?;

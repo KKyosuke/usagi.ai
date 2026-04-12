@@ -14,10 +14,12 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
     let term = Term::stdout();
     let mut _guard = AlternateScreenGuard::new(term.clone())?;
 
+    layout::animate_rabbit(&term, 800, true);
+
     loop {
         term.move_cursor_to(0, 0)?;
         term.clear_screen()?;
-        layout::show_rabbit(&term);
+        layout::show_rabbit(&term, true);
 
         let menu_items = vec![
             layout::MenuItem { icon: "".to_string(), label: "Open".to_string(), key: "o".to_string(), modified_at: None },

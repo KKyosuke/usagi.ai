@@ -4,6 +4,8 @@
 
 `usagi doctor` は、`usagi.ai` が正常に動作するために必要な外部ツール（`git` など）や言語ランタイムがシステムにインストールされているかを確認するコマンドです。
 
+実行すると、可愛いうさぎのアニメーションが画面を走り抜け、システムの状態をチェックしてくれます。🐰💨
+
 ## 使い方
 
 ```bash
@@ -24,21 +26,24 @@ usagi doctor
 ## 出力例
 
 ```
-Checking dependencies...
+                                     (\(\
+                                    (='-')
+                                    o(_(")(")
+                                    USAGI AI
+🐰 USAGI DOCTOR is checking your system... 🐰
+🥕 git        (Essential) git version 2.39.3 (Apple Git-146)
+🥕 bash       (Essential) GNU bash, version 3.2.57(1)-release (arm64-apple-darwin23)
+🥕 node       (Optional)  v24.13.0
+🥕 npm        (Optional)  11.6.2
+🥕 python3    (Optional)  Python 3.13.5
+🐾 python     (Optional)  Not found
 
-✅ git        (Essential) git version 2.39.3
-✅ bash       (Essential) GNU bash, version 3.2.57(1)-release (arm64-apple-darwin23)
-✅ node       (Optional)  v24.13.0
-✅ npm        (Optional)  11.6.2
-✅ python3    (Optional)  Python 3.13.5
-⚠️ python     (Optional)  Not found
-
-All essential commands are available.
+✨ Everything looks fluffy! Usagi is ready to hop! ✨
 ```
 
-- ✅: インストール済み。
+- 🥕: インストール済み。
 - ❌: 必須ツールが見つかりません。
-- ⚠️: 任意ツールが見つかりません。
+- 🐾: 任意ツールが見つかりません。
 
 ## 関連ドキュメント
 

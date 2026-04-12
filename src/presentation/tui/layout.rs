@@ -1,5 +1,7 @@
 use console::{Term, style};
 use chrono::TimeZone;
+use std::time::{Duration, Instant};
+use std::thread;
 
 /// A single entry in the side-menu.
 pub struct MenuItem {
@@ -21,7 +23,7 @@ pub fn format_modified_at(time: &str) -> String {
 }
 
 /// Renders the usagi ASCII-art mascot centred in the terminal.
-pub fn show_rabbit(term: &Term) {
+pub fn show_rabbit(term: &Term, center_vertically: bool) {
     let character_lines = [
         "  (\\(\\ ",
         " (='-') ",
@@ -37,7 +39,7 @@ pub fn show_rabbit(term: &Term) {
     let height = if height == 0 { 24 } else { height as usize };
 
     let total_height = character_lines.len() + message_lines.len() + 2;
-    let top_padding = if height > total_height + 10 {
+    let top_padding = if center_vertically && height > total_height + 10 {
         (height - total_height) / 4
     } else {
         1
@@ -63,6 +65,97 @@ pub fn show_rabbit(term: &Term) {
     for line in message_lines {
         let padded_line = format!("{}{}", " ".repeat(left_padding_message), line);
         let _ = term.write_line(&style(padded_line).green().bold().to_string());
+    }
+}
+
+/// Renders the usagi ASCII-art mascot with a simple running animation.
+pub fn animate_rabbit(term: &Term, duration_ms: u64, center_vertically: bool) {
+    let frames = [
+        [
+            "  (\\(\\ ",
+            " (='-') ",
+            " o(_(\")(\")",
+        ],
+        [
+            "  | |  ",
+            " (='^') ",
+            "  (_/)(_/)",
+        ],
+        [
+            "  (\\(\\ ",
+            " (='o') ",
+            "  / / / /",
+        ],
+        [
+            "  | |  ",
+            " (='-') ",
+            "  (_)(_)o",
+        ],
+    ];
+
+    let y_offsets = [1, 0, 0, 1]; // Top padding inside the 5-line box to simulate jumping
+
+    let (height, width) = term.size();
+    let width = if width == 0 { 80 } else { width as usize };
+    let height = if height == 0 { 24 } else { height as usize };
+    
+    let total_height = 5; // 3 lines of rabbit + 1 empty + 1 message
+    let top_padding = if center_vertically && height > total_height + 10 {
+        (height - total_height) / 4
+    } else {
+        1
+    };
+
+    for _ in 0..top_padding {
+        let _ = term.write_line("");
+    }
+
+    let start_time = Instant::now();
+    let duration = Duration::from_millis(duration_ms);
+    let frame_interval = Duration::from_millis(120);
+    
+    let mut frame_idx = 0;
+    let mut x_pos = 0;
+    let max_x = width.saturating_sub(15).max(1);
+
+    while start_time.elapsed() < duration {
+        let frame = &frames[frame_idx];
+        let rabbit_padding = " ".repeat(x_pos);
+        let y_offset = y_offsets[frame_idx];
+
+        // Total 5 lines for the rabbit and its label:
+        // Top padding (y_offset) + Rabbit (3 lines) + Bottom padding (1-y_offset) + USAGI AI (1 line)
+        for _ in 0..y_offset {
+            let _ = term.write_line("");
+        }
+        for line in frame {
+            let _ = term.write_line(&style(format!("{}{}", rabbit_padding, line)).magenta().bold().to_string());
+        }
+        for _ in 0..(1 - y_offset) {
+            let _ = term.write_line("");
+        }
+        let _ = term.write_line(&style(format!("{}  USAGI AI", rabbit_padding)).green().bold().to_string());
+        
+        thread::sleep(frame_interval);
+        
+        if start_time.elapsed() < duration {
+            let _ = term.clear_last_lines(5);
+            frame_idx = (frame_idx + 1) % frames.len();
+            x_pos = (x_pos + 3) % max_x;
+        } else if frame_idx != 0 {
+            // Ensure the final frame is the normal pose (frame 0)
+            let _ = term.clear_last_lines(5);
+            for _ in 0..y_offsets[0] {
+                let _ = term.write_line("");
+            }
+            for line in &frames[0] {
+                let _ = term.write_line(&style(format!("{}{}", rabbit_padding, line)).magenta().bold().to_string());
+            }
+            for _ in 0..(1 - y_offsets[0]) {
+                let _ = term.write_line("");
+            }
+            let _ = term.write_line(&style(format!("{}  USAGI AI", rabbit_padding)).green().bold().to_string());
+        }
     }
 }
 
