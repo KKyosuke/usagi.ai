@@ -1,11 +1,7 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
-use crate::presentation::commands::Command;
-
-mod domain;
-mod infrastructure;
-mod usecase;
-mod presentation;
+use usagi::presentation::commands::Command;
+use usagi::presentation;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

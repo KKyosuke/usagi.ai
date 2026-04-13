@@ -28,3 +28,49 @@ pub fn save_project_state(project_path: &Path, state: &ProjectState) -> Result<(
     fs::write(state_path, content).context("Failed to write project state")?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::project::Worktree;
+    use std::fs;
+
+    #[test]
+    fn test_save_and_get_project_state() -> Result<()> {
+        let temp_dir = std::env::temp_dir().join(format!("usagi_test_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+        let usagi_dir = temp_dir.join(".usagi");
+        fs::create_dir_all(&usagi_dir)?;
+
+        let state = ProjectState {
+            initialized: true,
+            worktrees: vec![Worktree {
+                branch: "main".to_string(),
+                directory: "main".to_string(),
+                default: true,
+                modified_at: "2024-01-01 00:00 UTC".to_string(),
+            }],
+            current_worktree: Some("main".to_string()),
+            history: vec![],
+            last_updated: None,
+        };
+
+        save_project_state(&temp_dir, &state)?;
+        let loaded_state = get_project_state(&temp_dir)?;
+
+        assert_eq!(loaded_state.initialized, true);
+        assert_eq!(loaded_state.worktrees.len(), 1);
+        assert_eq!(loaded_state.worktrees[0].branch, "main");
+
+        // Clean up
+        fs::remove_dir_all(&temp_dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_project_state_missing() {
+        let temp_dir = std::env::temp_dir().join(format!("usagi_test_missing_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
+        let result = get_project_state(&temp_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Project state is missing"));
+    }
+}
