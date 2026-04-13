@@ -14,6 +14,7 @@
 | [`man`](./man.md) | `man [COMMAND]` | コマンドのヘルプを表示する |
 | [`session`](./session.md) | `session <SUBCOMMAND>` | セッション（ブランチ＋worktree）を管理する |
 | [`space`](./space.md) | `space <WORKTREE>` | ワークスペース（worktree）を切り替える |
+| [`terminal`](./terminal.md) | `terminal [command]` | 対話型ターミナルの起動 |
 
 ## オートコンプリートの使い方
 
