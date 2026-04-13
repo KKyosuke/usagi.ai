@@ -14,8 +14,6 @@ pub fn run_terminal_ui() -> Result<Option<(PathBuf, Option<String>)>> {
     let term = Term::stdout();
     let mut _guard = AlternateScreenGuard::new(term.clone())?;
 
-    layout::animate_rabbit(&term, 800, true);
-
     loop {
         term.move_cursor_to(0, 0)?;
         term.clear_screen()?;
