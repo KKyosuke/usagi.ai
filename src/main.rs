@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use anyhow::Result;
 use usagi::presentation::commands::Command;
 use usagi::presentation;
@@ -23,8 +23,6 @@ enum Commands {
         #[arg(short, long)]
         branch: Option<String>,
     },
-    /// Open a workspace (interactive side menu)
-    Open,
     /// Hop into usagi terminal
     Hop,
     /// Check system dependencies
@@ -54,8 +52,9 @@ fn main() -> Result<()> {
             presentation::cli::init::run(repository_url, directory, branch.clone())?;
         }
         Some(Commands::Hop) => {
-            let current_dir = std::env::current_dir()?;
-            presentation::cli::hop::run(current_dir, None)?;
+            if let Some((project_path, worktree)) = presentation::tui::open::run_terminal_ui()? {
+                presentation::cli::hop::run(project_path, worktree)?;
+            }
         }
         Some(Commands::Doctor) => {
             let doctor = presentation::commands::doctor::DoctorCommand;
@@ -70,8 +69,9 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Some(Commands::Open) | None => {
-            presentation::cli::open::run()?;
+        None => {
+            let mut cmd = Cli::command();
+            cmd.print_help()?;
         }
     }
 
