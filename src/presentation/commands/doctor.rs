@@ -46,6 +46,7 @@ impl DoctorCommand {
         results.push(check_command("npm", &["--version"], false));
         results.push(check_command("python3", &["--version"], false));
         results.push(check_command("python", &["--version"], false));
+        results.push(check_command("aws", &["--version"], false));
 
         let mut output = format!("{}\n\n", style("🐰 USAGI DOCTOR is checking your system... 🐰").magenta().bold());
         for (name, success, info, essential) in results {
