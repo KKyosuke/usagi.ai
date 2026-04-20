@@ -29,6 +29,20 @@ enum Commands {
     Hop,
     /// Check system dependencies
     Doctor,
+    /// AWS related commands
+    Aws {
+        #[command(subcommand)]
+        command: AwsCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AwsCommands {
+    /// Login to AWS SSO
+    Login {
+        /// Optional profile name
+        profile: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -48,6 +62,13 @@ fn main() -> Result<()> {
             let current_dir = std::env::current_dir()?;
             let term = console::Term::stdout();
             println!("{}", doctor.run(vec![], &current_dir, "", &term)?);
+        }
+        Some(Commands::Aws { command }) => {
+            match command {
+                AwsCommands::Login { profile } => {
+                    presentation::cli::aws::run_login(profile.clone())?;
+                }
+            }
         }
         Some(Commands::Open) | None => {
             presentation::cli::open::run()?;

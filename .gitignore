@@ -7,3 +7,7 @@ playground
 # IDE files
 .idea
 .usagi/
+
+
+# mac
+.DS_Store
