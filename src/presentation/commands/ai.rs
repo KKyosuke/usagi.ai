@@ -10,6 +10,19 @@ use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::LlamaModel;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::context::params::LlamaContextParams;
+use std::sync::{Mutex, OnceLock};
+
+struct AiState {
+    backend: Option<&'static LlamaBackend>,
+    model: Option<&'static LlamaModel>,
+    context: Option<llama_cpp_2::context::LlamaContext<'static>>,
+    n_cur: usize,
+}
+
+unsafe impl Send for AiState {}
+unsafe impl Sync for AiState {}
+
+static AI_STATE: OnceLock<Mutex<AiState>> = OnceLock::new();
 
 pub struct AiCommand;
 
@@ -39,14 +52,17 @@ impl Command for AiCommand {
     }
 
     fn help(&self) -> &str {
-        "Usage: ai <prompt> [--model <path>]\n       ai --set-model\nSet USAGI_AI_MODEL env var to specify global default model."
+        "Usage: ai <prompt> [--model <path>]\n       ai chat\n       ai --set-model\nSet USAGI_AI_MODEL env var to specify global default model."
+    }
+
+    fn subcommands(&self) -> Vec<(String, String)> {
+        vec![
+            ("chat".to_string(), "Start an interactive AI chat session".to_string()),
+        ]
     }
 
     fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &console::Term) -> Result<String> {
-        let mut cli_args = vec!["ai".to_string()];
-        cli_args.extend(args);
-
-        let parsed = match AiArgs::try_parse_from(&cli_args) {
+        let parsed = match AiArgs::try_parse_from(&args) {
             Ok(opts) => opts,
             Err(e) => return Ok(e.to_string()),
         };
@@ -88,12 +104,23 @@ impl Command for AiCommand {
             }
         }
 
-        if parsed.prompt.is_empty() {
+        let is_chat_turn = parsed.prompt.get(0).map(|s| s.as_str()) == Some("chat-turn");
+        let prompt_input = if is_chat_turn {
+            parsed.prompt[1..].join(" ")
+        } else {
+            parsed.prompt.join(" ")
+        };
+
+        if prompt_input.is_empty() && !is_chat_turn {
             return Ok(format!("{}", style("Error: no prompt provided.").red()));
         }
 
         // Format prompt for Gemma
-        let prompt_text = format!("<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n", parsed.prompt.join(" "));
+        let prompt_text = if is_chat_turn {
+            format!("<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n", prompt_input)
+        } else {
+            format!("<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n", prompt_input)
+        };
         
         let state_model = crate::infrastructure::project_state::get_project_state(_project_path).ok().and_then(|s| s.ai_model);
         
@@ -113,9 +140,103 @@ impl Command for AiCommand {
                 model_path = model_path.replacen("~", user_dirs.home_dir().to_str().unwrap(), 1);
             }
         }
+        if is_chat_turn {
+            let state_mutex = AI_STATE.get_or_init(|| Mutex::new(AiState {
+                backend: None,
+                model: None,
+                context: None,
+                n_cur: 0,
+            }));
+            let mut state = state_mutex.lock().unwrap();
+
+            if state.backend.is_none() {
+                let mut backend_box = Box::new(LlamaBackend::init()?);
+                backend_box.void_logs();
+                let backend = Box::leak(backend_box);
+                let model_params = LlamaModelParams::default();
+                let model = Box::leak(Box::new(LlamaModel::load_from_file(backend, &model_path, &model_params).context("Failed to load model")?));
+                let ctx_params = LlamaContextParams::default();
+                let ctx = model.new_context(backend, ctx_params).context("Failed to create context")?;
+                
+                state.backend = Some(backend);
+                state.model = Some(model);
+                state.context = Some(ctx);
+                state.n_cur = 0;
+            }
+
+            let model = state.model.unwrap();
+            let mut n_cur = state.n_cur;
+            let ctx = state.context.as_mut().unwrap();
+            let max_context_size = ctx.n_ctx() as usize;
+
+            let add_bos = if n_cur == 0 { llama_cpp_2::model::AddBos::Always } else { llama_cpp_2::model::AddBos::Never };
+            let prompt_tokens = model.str_to_token(&prompt_text, add_bos).context("Tokenize failed")?;
+
+            if n_cur + prompt_tokens.len() > max_context_size.saturating_sub(1) {
+                return Ok(format!("{}", style("Error: context limit reached. Please type 'exit' and start a new session.").red()));
+            }
+
+            let mut batch = LlamaBatch::new(512, 1);
+            let last_index = prompt_tokens.len().saturating_sub(1);
+            for (i, token) in prompt_tokens.into_iter().enumerate() {
+                let is_last = i == last_index;
+                let _ = batch.add(token, n_cur as i32, &[0], is_last);
+                n_cur += 1;
+            }
+
+            ctx.decode(&mut batch).context("Decode failed")?;
+            
+            let mut output_str = String::new();
+            loop {
+                let candidates = ctx.candidates_ith(batch.n_tokens() - 1);
+                let next_token_data = candidates
+                    .max_by(|a: &llama_cpp_2::token::data::LlamaTokenData, b: &llama_cpp_2::token::data::LlamaTokenData| a.logit().partial_cmp(&b.logit()).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap();
+                let next_token = next_token_data.id();
+
+                if next_token == model.token_eos() || next_token == model.token_nl() || next_token == model.token_bos() {
+                    break;
+                }
+
+                if let Ok(piece) = model.token_to_bytes(next_token, llama_cpp_2::model::Special::Tokenize) {
+                    let token_str = String::from_utf8_lossy(&piece).to_string();
+                    output_str.push_str(&token_str);
+                    if output_str.contains("<end_of_turn>") || output_str.contains("<start_of_turn>") {
+                        output_str = output_str.replace("<end_of_turn>", "").replace("<start_of_turn>", "");
+                        break;
+                    }
+                }
+
+                batch.clear();
+                let _ = batch.add(next_token, n_cur as i32, &[0], true);
+                ctx.decode(&mut batch).context("Decode failed")?;
+                n_cur += 1;
+                
+                if n_cur >= max_context_size {
+                    break;
+                }
+            }
+            
+            let end_turn_tokens = model.str_to_token("<end_of_turn>\n", llama_cpp_2::model::AddBos::Never).unwrap_or_default();
+            if !end_turn_tokens.is_empty() {
+                batch.clear();
+                let length = end_turn_tokens.len();
+                for (i, token) in end_turn_tokens.into_iter().enumerate() {
+                    let is_last = i == length - 1;
+                    let _ = batch.add(token, n_cur as i32, &[0], is_last);
+                    n_cur += 1;
+                }
+                let _ = ctx.decode(&mut batch);
+            }
+
+            state.n_cur = n_cur;
+            return Ok(output_str.trim().to_string());
+        }
+
 
         // Initialize llama backend
-        let backend = LlamaBackend::init()?;
+        let mut backend = LlamaBackend::init()?;
+        backend.void_logs();
         term.write_line(&format!("{}", style("Loading model...").dim()))?;
 
         let model_params = LlamaModelParams::default();

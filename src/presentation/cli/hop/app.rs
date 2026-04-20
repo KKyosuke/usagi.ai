@@ -19,6 +19,7 @@ pub struct HopApp {
     pub commands: Vec<Box<dyn Command>>,
     pub command_history: Vec<String>,
     pub is_terminal_view: bool,
+    pub is_ai_chat_mode: bool,
 }
 
 impl HopApp {
@@ -59,11 +60,14 @@ impl HopApp {
             commands,
             command_history,
             is_terminal_view: false,
+            is_ai_chat_mode: false,
         })
     }
 
     pub fn mode(&self) -> AppMode {
-        if self.is_command_mode {
+        if self.is_ai_chat_mode {
+            AppMode::AiChat
+        } else if self.is_command_mode {
             AppMode::Command
         } else {
             AppMode::SideMenu

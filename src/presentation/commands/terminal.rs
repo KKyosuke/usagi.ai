@@ -46,6 +46,17 @@ Example: terminal /bin/bash"
         enable_raw_mode()?;
         let mut stdout = std::io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
+        
+        struct TerminalCleanup;
+        impl Drop for TerminalCleanup {
+            fn drop(&mut self) {
+                let _ = disable_raw_mode();
+                let _ = execute!(std::io::stdout(), LeaveAlternateScreen);
+                let _ = execute!(std::io::stdout(), crossterm::cursor::Show);
+            }
+        }
+        let _cleanup = TerminalCleanup;
+
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
@@ -316,11 +327,6 @@ Example: terminal /bin/bash"
                 break;
             }
         }
-
-        // 後始末
-        disable_raw_mode()?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-        terminal.show_cursor()?;
 
         Ok("Terminal closed".to_string())
     }

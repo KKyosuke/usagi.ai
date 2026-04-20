@@ -61,13 +61,17 @@ pub fn render(app: &HopApp) -> Result<()> {
         
         // 右側の表示内容 (履歴)
         let right_content = if i == 0 {
-            let label = if app.is_terminal_view {
-                style("TERMINAL").bold().cyan().to_string()
+            if app.is_ai_chat_mode {
+                format!("{}", style("AI CHAT").bold().cyan())
             } else {
-                style("Welcome to usagi terminal!").bold().to_string()
-            };
-            let wt = &app.state.worktrees[app.selected_index];
-            format!("{} (Dir: {})", label, style(&wt.directory).dim())
+                let label = if app.is_terminal_view {
+                    style("TERMINAL").bold().cyan().to_string()
+                } else {
+                    style("Welcome to usagi terminal!").bold().to_string()
+                };
+                let wt = &app.state.worktrees[app.selected_index];
+                format!("{} (Dir: {})", label, style(&wt.directory).dim())
+            }
         } else {
             let history_idx = i.saturating_sub(1);
             if history_idx < app.command_history.len() {
@@ -87,7 +91,8 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.move_cursor_to(0, height as usize - 4)?;
     term.write_line(&format!("{:-<width$}", "", width = width as usize))?;
     let command_padding = left_width.saturating_sub(measure_text_width("COMMAND"));
-    let command_prompt = format!("COMMAND{:padding$} | {}", "", app.current_input, padding = command_padding);
+    let prompt_prefix = if app.is_ai_chat_mode { "(ai) >" } else { "|" };
+    let command_prompt = format!("COMMAND{:padding$} {} {}", "", prompt_prefix, app.current_input, padding = command_padding);
     let command_display = format!("{:width$}", command_prompt, width = width as usize);
     term.write_line(&command_display)?;
 
@@ -103,19 +108,21 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.write_str(&help_display)?;
 
     // コマンドモードのポップアップ表示
-    if app.is_command_mode {
+    if app.is_command_mode && !app.is_ai_chat_mode {
         render_command_popup(app, height as usize, width as usize, left_width)?;
     }
 
     if app.is_command_mode {
         let input_prefix: String = app.current_input.chars().take(app.cursor_pos).collect();
-        let cursor_x = left_width + 3 + measure_text_width(&input_prefix);
+        let prompt_width = if app.is_ai_chat_mode { "(ai) >".len() } else { "|".len() };
+        let cursor_x = left_width + 2 + prompt_width + measure_text_width(&input_prefix);
         term.move_cursor_to(cursor_x, height as usize - 3)?;
         term.show_cursor()?;
     } else {
         term.hide_cursor()?;
     }
 
+    let _ = term.flush();
     Ok(())
 }
 

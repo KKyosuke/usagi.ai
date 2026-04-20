@@ -135,6 +135,37 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     let mut parts = parts;
     let selected_worktree = app.worktrees[app.selected_index].clone();
 
+    // Custom interception for AI Chat Mode entering
+    if parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat" {
+        app.is_ai_chat_mode = true;
+        app.current_input.clear();
+        app.cursor_pos = 0;
+        app.history_index = None;
+        app.command_history.clear();
+        let (_term_height, term_width) = app.term.size();
+        let left_width = 30;
+        let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+        push_to_history(&mut app.command_history, &format!("{}", style("🐰 Entered AI Chat Mode. Type 'exit' to end.").cyan().bold()), right_width);
+        return Ok(true);
+    }
+
+    if app.is_ai_chat_mode {
+        let original_input = cmd_to_execute.trim();
+        if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
+            app.is_ai_chat_mode = false;
+            app.current_input.clear();
+            app.cursor_pos = 0;
+            app.history_index = None;
+            app.command_history.clear();
+            let (_term_height, term_width) = app.term.size();
+            let left_width = 30;
+            let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+            push_to_history(&mut app.command_history, &format!("{}", style("AI chat session ended.").dim()), right_width);
+            return Ok(true);
+        }
+        parts = vec!["ai".to_string(), "chat-turn".to_string(), original_input.to_string()];
+    }
+
     // If cmd is a number, try to get from history
     if let Ok(index) = parts[0].parse::<usize>() {
         if index > 0 && index <= app.state.history.len() {
@@ -159,12 +190,25 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
 
     if cmd_name != "close" && !is_session_close {
-        let prompt_sign = if app.is_terminal_view { "$" } else { ">" };
+        let prompt_sign = if app.is_ai_chat_mode { "(ai) >" } else if app.is_terminal_view { "$" } else { ">" };
         let prompt = format!("{} {} {}", style(&selected_worktree).cyan(), prompt_sign, cmd_to_execute);
         push_to_history(&mut app.command_history, &prompt, right_width);
     }
 
+    let mut show_thinking = false;
+    if app.is_ai_chat_mode && cmd_name == "ai" && parts.get(1).map(|s| s.as_str()) == Some("chat-turn") {
+        push_to_history(&mut app.command_history, &format!("{}", style("🐰 Thinking...").dim().italic()), right_width);
+        show_thinking = true;
+    }
+
+    // Clear input early before rendering
+    let backup_input = app.current_input.clone();
+    let backup_cursor = app.cursor_pos;
+    app.current_input.clear();
+    app.cursor_pos = 0;
+
     ui::render(app)?;
+    let _ = app.term.flush();
 
     let result: Result<String> = if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
         if cmd_name == "space" {
@@ -211,12 +255,18 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
             }
         }
     } else {
+        if show_thinking {
+            app.command_history.pop();
+        }
         match result {
             Ok(output) => {
                 push_to_history(&mut app.command_history, &output, right_width);
             }
             Err(e) => {
                 push_to_history(&mut app.command_history, &e.to_string(), right_width);
+                // Restore input on error so they don't have to re-type
+                app.current_input = backup_input;
+                app.cursor_pos = backup_cursor;
             }
         }
 
@@ -249,8 +299,6 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     while app.command_history.len() > (term_height as usize - 7).max(1) {
         app.command_history.remove(0);
     }
-    app.current_input.clear();
-    app.cursor_pos = 0;
     app.history_index = None;
 
     Ok(true)
