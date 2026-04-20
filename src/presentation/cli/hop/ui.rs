@@ -127,18 +127,23 @@ pub fn render(app: &HopApp) -> Result<()> {
 }
 
 fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
-    if app.current_input.is_empty() {
+    let input_to_use = if let Some(base) = &app.tab_completion_base {
+        base.clone()
+    } else {
+        app.current_input.clone()
+    };
+    if input_to_use.is_empty() {
         return Ok(());
     }
     let term = &app.term;
-    let parts: Vec<&str> = app.current_input.split_whitespace().collect();
+    let parts: Vec<&str> = input_to_use.split_whitespace().collect();
     let mut suggestions: Vec<(String, String)> = Vec::new();
     let mut usage_text: Option<String> = None;
 
-    if !app.current_input.contains(' ') {
+    if !input_to_use.contains(' ') {
         // コマンド名のサジェスト
         let mut current_suggestions: Vec<(String, String)> = app.commands.iter()
-            .filter(|c| c.name().starts_with(&app.current_input))
+            .filter(|c| c.name().starts_with(&input_to_use))
             .map(|c| (c.name().to_string(), c.description().to_string()))
             .collect();
 
@@ -147,7 +152,7 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
             let name = current_suggestions[0].0.clone();
             if let Some(command) = app.commands.iter().find(|c| c.name() == name) {
                 usage_text = command.usage(&[name.as_str()]);
-                if name == app.current_input {
+                if name == input_to_use {
                     current_suggestions.clear();
                 }
             }
@@ -157,7 +162,7 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
         // コマンドの引数/サブコマンドのサジェスト
         let cmd_name = parts[0];
         if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
-            let last_part = if app.current_input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
+            let last_part = if input_to_use.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
             let mut current_suggestions: Vec<(String, String)> = command.subcommands()
                 .into_iter()
                 .filter(|(name, _)| name.starts_with(last_part))
@@ -169,7 +174,7 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
                 let is_perfect_match = name == last_part;
 
                 let mut check_parts = parts.clone();
-                if !app.current_input.ends_with(' ') {
+                if !input_to_use.ends_with(' ') {
                     if let Some(last) = check_parts.last_mut() {
                         *last = name.as_str();
                     }
@@ -220,7 +225,11 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
             let y = height.saturating_sub(offset + (display_count - 1 - idx));
             term.move_cursor_to(popup_x, y)?;
             let content = format!("{:<10} | {:<width$}", name, desc, width = popup_width.saturating_sub(13));
-            term.write_str(&style(content).black().on_white().to_string())?;
+            if app.suggestion_index == Some(idx) {
+                term.write_str(&style(content).black().on_cyan().to_string())?;
+            } else {
+                term.write_str(&style(content).black().on_white().to_string())?;
+            }
         }
     }
 

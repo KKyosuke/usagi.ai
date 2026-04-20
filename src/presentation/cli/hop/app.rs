@@ -20,6 +20,8 @@ pub struct HopApp {
     pub command_history: Vec<String>,
     pub is_terminal_view: bool,
     pub is_ai_chat_mode: bool,
+    pub tab_completion_base: Option<String>,
+    pub suggestion_index: Option<usize>,
 }
 
 impl HopApp {
@@ -61,6 +63,8 @@ impl HopApp {
             command_history,
             is_terminal_view: false,
             is_ai_chat_mode: false,
+            tab_completion_base: None,
+            suggestion_index: None,
         })
     }
 

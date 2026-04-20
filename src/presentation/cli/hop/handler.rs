@@ -20,6 +20,11 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
         }
     };
 
+    if !matches!(key, Key::Tab) && app.is_command_mode {
+        app.tab_completion_base = None;
+        app.suggestion_index = None;
+    }
+
     match key {
         Key::ArrowLeft if app.is_command_mode => {
             if app.cursor_pos > 0 {
@@ -305,38 +310,60 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
 }
 
 fn handle_tab_completion(app: &mut HopApp) {
-    let parts: Vec<&str> = app.current_input.split_whitespace().collect();
-    if !app.current_input.contains(' ') {
+    if app.tab_completion_base.is_none() {
+        app.tab_completion_base = Some(app.current_input.clone());
+        app.suggestion_index = None;
+    }
+
+    let input = app.tab_completion_base.as_ref().unwrap().clone();
+    let parts: Vec<&str> = input.split_whitespace().collect();
+    let mut suggestions: Vec<String> = Vec::new();
+
+    if !input.contains(' ') {
         // コマンド名の補完
-        let suggestions: Vec<&str> = app.commands.iter()
-            .map(|c| c.name())
-            .filter(|name| name.starts_with(&app.current_input))
+        suggestions = app.commands.iter()
+            .map(|c| c.name().to_string())
+            .filter(|name| name.starts_with(&input))
             .collect();
-        if let Some(first) = suggestions.first() {
-            app.current_input = first.to_string();
-            app.cursor_pos = app.current_input.chars().count();
-        }
     } else if !parts.is_empty() {
         // 引数の補完
         let cmd_name = parts[0];
         if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
-            let last_part = if app.current_input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
-            let suggestions = command.subcommands();
-            if let Some((name, _)) = suggestions.iter().find(|(name, _)| name.starts_with(last_part)) {
-                let head = if app.current_input.ends_with(' ') {
-                    &app.current_input
-                } else {
-                    app.current_input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
-                };
-                if head.is_empty() || head.ends_with(' ') {
-                    app.current_input = format!("{}{}", head, name);
-                } else {
-                    app.current_input = format!("{} {}", head, name);
-                }
-                app.cursor_pos = app.current_input.chars().count();
-            }
+            let last_part = if input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
+            suggestions = command.subcommands().into_iter()
+                .filter(|(name, _)| name.starts_with(last_part))
+                .map(|(name, _)| name.clone())
+                .collect();
         }
     }
+
+    if suggestions.is_empty() {
+        return;
+    }
+
+    let next_idx = match app.suggestion_index {
+        Some(idx) => (idx + 1) % suggestions.len(),
+        None => 0,
+    };
+    app.suggestion_index = Some(next_idx);
+
+    let selected = &suggestions[next_idx];
+
+    if !input.contains(' ') {
+        app.current_input = selected.clone();
+    } else {
+        let head = if input.ends_with(' ') {
+            &input
+        } else {
+            input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
+        };
+        if head.is_empty() || head.ends_with(' ') {
+            app.current_input = format!("{}{}", head, selected);
+        } else {
+            app.current_input = format!("{} {}", head, selected);
+        }
+    }
+    app.cursor_pos = app.current_input.chars().count();
 }
 
 fn push_to_history(history: &mut Vec<String>, text: &str, max_width: usize) {
