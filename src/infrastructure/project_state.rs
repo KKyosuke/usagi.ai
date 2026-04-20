@@ -40,18 +40,21 @@ mod tests {
         let temp_dir = std::env::temp_dir().join(format!("usagi_test_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)));
         let usagi_dir = temp_dir.join(".usagi");
         fs::create_dir_all(&usagi_dir)?;
+        let worktree_path = std::path::PathBuf::from("main");
 
         let state = ProjectState {
             initialized: true,
             worktrees: vec![Worktree {
                 branch: "main".to_string(),
-                directory: "main".to_string(),
+                directory: worktree_path.to_string_lossy().to_string(),
                 default: true,
-                modified_at: "2024-01-01 00:00 UTC".to_string(),
+                modified_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+                status: crate::domain::project::SessionStatus::Todo,
             }],
-            current_worktree: Some("main".to_string()),
-            history: vec![],
+            current_worktree: Some(worktree_path.to_string_lossy().to_string()),
+            history: Vec::new(),
             last_updated: None,
+            ai_model: None,
         };
 
         save_project_state(&temp_dir, &state)?;

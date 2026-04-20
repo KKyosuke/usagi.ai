@@ -60,8 +60,9 @@ pub fn run(
             status: crate::domain::project::SessionStatus::Todo,
         }],
         current_worktree: Some(current_branch),
-        history: vec![],
+        history: Vec::new(),
         last_updated: None,
+        ai_model: None,
     };
     state.update_last_updated();
     let state_json =

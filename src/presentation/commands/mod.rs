@@ -9,6 +9,7 @@ pub mod man;
 pub mod session;
 pub mod space;
 pub mod terminal;
+pub mod ai;
 
 /// Interface that every TUI command must implement.
 pub trait Command: Send + Sync {
@@ -34,5 +35,6 @@ pub fn get_commands() -> Vec<Box<dyn Command>> {
         Box::new(session::SessionCommand),
         Box::new(space::SpaceCommand),
         Box::new(terminal::TerminalCommand),
+        Box::new(ai::AiCommand),
     ]
 }

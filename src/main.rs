@@ -32,6 +32,11 @@ enum Commands {
         #[command(subcommand)]
         command: AwsCommands,
     },
+    /// AI model commands
+    Ai {
+        #[command(subcommand)]
+        command: AiCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -41,6 +46,12 @@ pub enum AwsCommands {
         /// Optional profile name
         profile: Option<String>,
     },
+}
+
+#[derive(Subcommand)]
+pub enum AiCommands {
+    /// Install AI model
+    Install,
 }
 
 fn main() -> Result<()> {
@@ -66,6 +77,13 @@ fn main() -> Result<()> {
             match command {
                 AwsCommands::Login { profile } => {
                     presentation::cli::aws::run_login(profile.clone())?;
+                }
+            }
+        }
+        Some(Commands::Ai { command }) => {
+            match command {
+                AiCommands::Install => {
+                    presentation::cli::ai::run_install()?;
                 }
             }
         }

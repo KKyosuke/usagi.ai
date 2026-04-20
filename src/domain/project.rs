@@ -71,6 +71,8 @@ pub struct ProjectState {
     pub history: Vec<String>,
     #[serde(default)]
     pub last_updated: Option<String>,
+    #[serde(default)]
+    pub ai_model: Option<String>,
 }
 
 impl ProjectState {
@@ -97,6 +99,7 @@ mod tests {
             current_worktree: Some("main".to_string()),
             history: vec!["test command".to_string()],
             last_updated: None,
+            ai_model: None,
         };
         state.update_last_updated();
         state.worktrees[0].update_modified_at();
