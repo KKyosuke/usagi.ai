@@ -57,7 +57,6 @@ pub fn run_login(profile: Option<String>) -> Result<()> {
         }
     };
 
-    println!("Exported AWS_PROFILE={}", chosen);
     println!("Running: aws sso login --profile \"{}\"", chosen);
 
     let mut cmd = Command::new("aws");
@@ -69,7 +68,11 @@ pub fn run_login(profile: Option<String>) -> Result<()> {
         std::process::exit(3);
     }
 
-    println!("SSO login completed for profile '{}'.", chosen);
+    println!("SSO login completed for profile '{}'.\n", chosen);
+    println!("========================================");
+    println!("To use this profile in your current terminal, please run:");
+    println!("export AWS_PROFILE={}", chosen);
+    println!("========================================");
     Ok(())
 }
 
