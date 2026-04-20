@@ -57,6 +57,7 @@ pub fn run(
             directory: "main".to_string(),
             default: true,
             modified_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+            status: crate::domain::project::SessionStatus::Todo,
         }],
         current_worktree: Some(current_branch),
         history: vec![],

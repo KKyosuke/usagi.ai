@@ -14,6 +14,7 @@ const HELP: &str = "Manages sessions (new working branches and worktrees).
 Usage: session start <branch_name> [--base <base_branch>]
        session close <branch_name>
        session update [--all] [--base <base_branch>]
+       session status <branch_name> <status>
 Closes and removes an existing session (removes worktree and deletes the local branch).";
 
 impl Command for SessionCommand {
@@ -46,6 +47,9 @@ impl Command for SessionCommand {
             }
             Some(SessionCommands::Update { all, base }) => {
                 update_sessions(all, base, project_path)
+            }
+            Some(SessionCommands::Status { branch, status }) => {
+                update_session_status(&branch, &status, project_path)
             }
             None => {
                 let mut cmd = SessionCli::command();
@@ -82,6 +86,7 @@ Commands:
   start   Start a new session
   close   Close a session
   update  Update session(s)
+  status  Update session status
   help    Print this message or the help of the given subcommand(s)".to_string())
     }
 }
@@ -117,6 +122,13 @@ pub enum SessionCommands {
         #[arg(short, long)]
         base: Option<String>,
     },
+    /// Update session status
+    Status {
+        /// Branch name
+        branch: String,
+        /// New status (todo, running, done)
+        status: String,
+    },
 }
 
 fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Result<String> {
@@ -143,6 +155,7 @@ fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Res
             directory: branch.to_string(),
             default: false,
             modified_at: "".to_string(),
+            status: crate::domain::project::SessionStatus::Todo,
         };
         worktree.update_modified_at();
         state.worktrees.push(worktree);
@@ -222,4 +235,27 @@ fn update_sessions(all: bool, base: Option<String>, project_path: &Path) -> Resu
     }
 
     Ok(results.join("\n"))
+}
+
+fn update_session_status(branch: &str, status: &str, project_path: &Path) -> Result<String> {
+    let mut state = get_project_state(project_path)?;
+
+    if let Some(worktree) = state.worktrees.iter_mut().find(|w| w.branch == branch) {
+        if let Some(new_status) = crate::domain::project::SessionStatus::from_str(status) {
+            worktree.status = new_status.clone();
+            worktree.update_modified_at();
+            state.update_last_updated();
+            save_project_state(project_path, &state)?;
+            let status_icon = match new_status {
+                crate::domain::project::SessionStatus::Todo => console::style(new_status.icon()).dim().to_string(),
+                crate::domain::project::SessionStatus::Running => console::style(new_status.icon()).green().bold().to_string(),
+                crate::domain::project::SessionStatus::Done => console::style(new_status.icon()).blue().bold().to_string(),
+            };
+            Ok(format!("Session status updated: branch '{}' is now '{}' {}", branch, new_status.as_str(), status_icon))
+        } else {
+            Err(anyhow!("Invalid status '{}'. Valid options are: todo, running, done", status))
+        }
+    } else {
+        Err(anyhow!("Session '{}' not found.", branch))
+    }
 }

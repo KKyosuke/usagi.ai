@@ -7,12 +7,52 @@ pub struct ProjectConfig {
     pub repository_url: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub enum SessionStatus {
+    #[default]
+    #[serde(rename = "todo")]
+    Todo,
+    #[serde(rename = "running")]
+    Running,
+    #[serde(rename = "done")]
+    Done,
+}
+
+impl SessionStatus {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().replace("-", "_").as_str() {
+            "todo" => Some(SessionStatus::Todo),
+            "running" => Some(SessionStatus::Running),
+            "done" => Some(SessionStatus::Done),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SessionStatus::Todo => "TODO",
+            SessionStatus::Running => "RUNNING",
+            SessionStatus::Done => "DONE",
+        }
+    }
+
+    pub fn icon(&self) -> &'static str {
+        match self {
+            SessionStatus::Todo => "○",
+            SessionStatus::Running => "▶",
+            SessionStatus::Done => "✓",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Worktree {
     pub branch: String,
     pub directory: String,
     pub default: bool,
     pub modified_at: String,
+    #[serde(default)]
+    pub status: SessionStatus,
 }
 
 impl Worktree {
@@ -52,6 +92,7 @@ mod tests {
                 directory: "main".to_string(),
                 default: true,
                 modified_at: "".to_string(),
+                status: SessionStatus::Todo,
             }],
             current_worktree: Some("main".to_string()),
             history: vec!["test command".to_string()],

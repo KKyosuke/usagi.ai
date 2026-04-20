@@ -37,10 +37,15 @@ pub fn render(app: &HopApp) -> Result<()> {
                         " ".repeat(mark_width)
                     };
                     
+                    let status_icon = match wt.status {
+                        crate::domain::project::SessionStatus::Todo => style(wt.status.icon()).dim().to_string(),
+                        crate::domain::project::SessionStatus::Running => style(wt.status.icon()).green().bold().to_string(),
+                        crate::domain::project::SessionStatus::Done => style(wt.status.icon()).blue().bold().to_string(),
+                    };
                     if wt_idx == app.selected_index {
-                        format!("{} {}  {}", cursor, mark, style(&wt.branch).cyan().bold())
+                        format!("{} {}  {}  {}", cursor, mark, style(&wt.branch).cyan().bold(), status_icon)
                     } else {
-                        format!("{} {}  {}", cursor, mark, &wt.branch)
+                        format!("{} {}  {}  {}", cursor, mark, &wt.branch, status_icon)
                     }
                 } else {
                     format!("   {}", style(layout::format_modified_at(&wt.modified_at)).dim())
