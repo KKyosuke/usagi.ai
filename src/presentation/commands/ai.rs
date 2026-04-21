@@ -33,9 +33,13 @@ struct AiArgs {
     #[arg(required = false)]
     prompt: Vec<String>,
 
-    /// Path to the GGUF model file
+    /// Path to the GGUF model file or Ollama model name
     #[arg(short, long)]
     model: Option<String>,
+
+    /// Path to an image file to pass to the AI (automatically uses Ollama)
+    #[arg(short, long)]
+    image: Option<String>,
 
     /// Set the provided model as the default for this project
     #[arg(long)]
@@ -113,6 +117,59 @@ impl Command for AiCommand {
 
         if prompt_input.is_empty() && !is_chat_turn {
             return Ok(format!("{}", style("Error: no prompt provided.").red()));
+        }
+
+        // Handle Ollama fallback if an image is provided
+        if let Some(image_path) = &parsed.image {
+            let mut file = std::fs::File::open(image_path)
+                .context(format!("Failed to open image: {}", image_path))?;
+            let mut buffer = Vec::new();
+            std::io::Read::read_to_end(&mut file, &mut buffer)?;
+            
+            use base64::{Engine as _, engine::general_purpose};
+            let base64_image = general_purpose::STANDARD.encode(&buffer);
+
+            // Default to llava if model hasn't been set to a plain text name
+            let state_model = crate::infrastructure::project_state::get_project_state(_project_path).ok().and_then(|s| s.ai_model);
+            let mut ollama_model = parsed.model.or(state_model).unwrap_or_else(|| "llava".to_string());
+            if ollama_model.ends_with(".gguf") {
+                ollama_model = "llava".to_string(); // Default to standard multimodal model
+            }
+
+            term.write_line(&format!("{}", style(format!("Sending image to Ollama ({})", ollama_model)).dim()))?;
+            
+            let client = reqwest::blocking::Client::new();
+            let req_body = serde_json::json!({
+                "model": ollama_model,
+                "prompt": prompt_input,
+                "images": [base64_image],
+                "stream": false
+            });
+
+            match client.post("http://localhost:11434/api/generate")
+                .json(&req_body)
+                .send() {
+                    Ok(resp) => {
+                        if resp.status().is_success() {
+                            let json: serde_json::Value = resp.json()?;
+                            if let Some(resp_text) = json.get("response").and_then(|v| v.as_str()) {
+                                return Ok(resp_text.trim().to_string());
+                            } else {
+                                return Ok(format!("{}", style("Error parsing response from Ollama.").red()));
+                            }
+                        } else {
+                            return Ok(format!("{}", style(format!("Ollama API Error: {}", resp.status())).red()));
+                        }
+                    },
+                    Err(e) => {
+                        return Ok(format!(
+                            "{}\n{}\n{}",
+                            style("Failed to connect to Ollama server.").red(),
+                            style("Ensure Ollama is running (`ollama serve`) and has the required model (`ollama pull llava`).").yellow(),
+                            style(format!("Details: {}", e)).dim()
+                        ));
+                    }
+                }
         }
 
         // Format prompt for Gemma
