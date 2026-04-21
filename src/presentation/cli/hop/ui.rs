@@ -74,8 +74,8 @@ pub fn render(app: &HopApp) -> Result<()> {
             }
         } else {
             let history_idx = i.saturating_sub(1);
-            if history_idx < app.command_history.len() {
-                app.command_history[history_idx].clone()
+            if history_idx < app.history.terminal_lines.len() {
+                app.history.terminal_lines[history_idx].clone()
             } else {
                 "".to_string()
             }

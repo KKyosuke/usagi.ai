@@ -3,6 +3,7 @@ pub mod ui;
 pub mod event;
 pub mod executor;
 pub mod completion;
+pub mod history_manager;
 
 use anyhow::Result;
 use std::path::PathBuf;

@@ -68,8 +68,6 @@ pub struct ProjectState {
     pub worktrees: Vec<Worktree>,
     pub current_worktree: Option<String>,
     #[serde(default)]
-    pub history: Vec<String>,
-    #[serde(default)]
     pub last_updated: Option<String>,
     #[serde(default)]
     pub ai_model: Option<String>,
@@ -97,7 +95,6 @@ mod tests {
                 status: SessionStatus::Todo,
             }],
             current_worktree: Some("main".to_string()),
-            history: vec!["test command".to_string()],
             last_updated: None,
             ai_model: None,
         };
@@ -115,3 +112,7 @@ mod tests {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct ProjectHistory {
+    pub history: Vec<String>,
+}

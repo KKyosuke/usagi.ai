@@ -60,7 +60,6 @@ pub fn run(
             status: crate::domain::project::SessionStatus::Todo,
         }],
         current_worktree: Some(current_branch),
-        history: Vec::new(),
         last_updated: None,
         ai_model: None,
     };

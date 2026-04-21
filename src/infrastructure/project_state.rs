@@ -52,7 +52,6 @@ mod tests {
                 status: crate::domain::project::SessionStatus::Todo,
             }],
             current_worktree: Some(worktree_path.to_string_lossy().to_string()),
-            history: Vec::new(),
             last_updated: None,
             ai_model: None,
         };
