@@ -1,6 +1,8 @@
 pub mod app;
 pub mod ui;
-pub mod handler;
+pub mod event;
+pub mod executor;
+pub mod completion;
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -19,7 +21,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     loop {
         ui::render(&app)?;
         
-        if !handler::handle_key(&mut app)? {
+        if !event::handle_key(&mut app)? {
             break;
         }
     }

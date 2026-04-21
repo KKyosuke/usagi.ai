@@ -1,7 +1,7 @@
 use console::{Term, style};
-use chrono::TimeZone;
 use std::time::{Duration, Instant};
 use std::thread;
+use crate::presentation::tui::utils::format_modified_at;
 
 /// A single entry in the side-menu.
 pub struct MenuItem {
@@ -9,17 +9,6 @@ pub struct MenuItem {
     pub label: String,
     pub key: String,
     pub modified_at: Option<String>,
-}
-
-pub fn format_modified_at(time: &str) -> String {
-    if let Some(base_str) = time.strip_suffix(" UTC") {
-        if let Ok(naive_dt) = chrono::NaiveDateTime::parse_from_str(base_str, "%Y-%m-%d %H:%M") {
-            let utc_dt = chrono::Utc.from_utc_datetime(&naive_dt);
-            let local_dt: chrono::DateTime<chrono::Local> = utc_dt.with_timezone(&chrono::Local);
-            return format!("modified: {}", local_dt.format("%Y/%m/%d %H:%M"));
-        }
-    }
-    format!("modified: {}", time)
 }
 
 /// Renders the usagi ASCII-art mascot centred in the terminal.
@@ -93,13 +82,13 @@ pub fn animate_rabbit(term: &Term, duration_ms: u64, center_vertically: bool) {
         ],
     ];
 
-    let y_offsets = [1, 0, 0, 1]; // Top padding inside the 5-line box to simulate jumping
+    let y_offsets = [1, 0, 0, 1];
 
     let (height, width) = term.size();
     let width = if width == 0 { 80 } else { width as usize };
     let height = if height == 0 { 24 } else { height as usize };
     
-    let total_height = 5; // 3 lines of rabbit + 1 empty + 1 message
+    let total_height = 5;
     let top_padding = if center_vertically && height > total_height + 10 {
         (height - total_height) / 4
     } else {
@@ -123,8 +112,6 @@ pub fn animate_rabbit(term: &Term, duration_ms: u64, center_vertically: bool) {
         let rabbit_padding = " ".repeat(x_pos);
         let y_offset = y_offsets[frame_idx];
 
-        // Total 5 lines for the rabbit and its label:
-        // Top padding (y_offset) + Rabbit (3 lines) + Bottom padding (1-y_offset) + USAGI AI (1 line)
         for _ in 0..y_offset {
             let _ = term.write_line("");
         }
@@ -143,7 +130,6 @@ pub fn animate_rabbit(term: &Term, duration_ms: u64, center_vertically: bool) {
             frame_idx = (frame_idx + 1) % frames.len();
             x_pos = (x_pos + 3) % max_x;
         } else if frame_idx != 0 {
-            // Ensure the final frame is the normal pose (frame 0)
             let _ = term.clear_last_lines(5);
             for _ in 0..y_offsets[0] {
                 let _ = term.write_line("");
@@ -170,9 +156,9 @@ pub fn render_side_menu(term: &Term, items: &[MenuItem], selected_index: usize) 
     for item in items {
         let icon_width = item.icon.chars().count();
         let item_width = if icon_width == 0 {
-            18 // cursor(1) + space + label(10) + space + key(5) = 1+1+10+1+5 = 18
+            18
         } else {
-            icon_width + 19 // icon + space + cursor(1) + space + label(10) + space + key(5) = icon_width+1+1+1+10+1+5 = icon_width+19
+            icon_width + 19
         };
         if item_width > max_menu_width {
             max_menu_width = item_width;
@@ -238,7 +224,6 @@ pub fn render_side_menu(term: &Term, items: &[MenuItem], selected_index: usize) 
         let _ = term.write_line(&line);
         if let Some(time) = &item.modified_at {
             let formatted_time = format_modified_at(time);
-
             let time_line = format!(
                 "{}   {}",
                 " ".repeat(left_padding),

@@ -1,129 +1,9 @@
-use anyhow::{Result, Context};
-use console::{Key, measure_text_width, strip_ansi_codes, style};
+use anyhow::Result;
+use console::{style, measure_text_width, strip_ansi_codes};
 use crate::presentation::cli::hop::app::HopApp;
 use crate::presentation::cli::hop::ui;
 
-pub fn handle_key(app: &mut HopApp) -> Result<bool> {
-    let key = match app.term.read_key() {
-        Ok(k) => k,
-        Err(e) => {
-            if e.to_string().contains("read interrupted") {
-                if app.is_command_mode {
-                    app.current_input.clear();
-                    app.history_index = None;
-                    return Ok(true);
-                } else {
-                    return Ok(false);
-                }
-            }
-            return Err(anyhow::Error::from(e)).context("Failed to read key");
-        }
-    };
-
-    if !matches!(key, Key::Tab) && app.is_command_mode {
-        app.tab_completion_base = None;
-        app.suggestion_index = None;
-    }
-
-    match key {
-        Key::ArrowLeft if app.is_command_mode => {
-            if app.cursor_pos > 0 {
-                app.cursor_pos -= 1;
-            }
-        }
-        Key::ArrowRight if app.is_command_mode => {
-            if app.cursor_pos < app.current_input.chars().count() {
-                app.cursor_pos += 1;
-            }
-        }
-        Key::ArrowUp => {
-            if app.is_command_mode {
-                if !app.state.history.is_empty() {
-                    let new_index = match app.history_index {
-                        None => Some(app.state.history.len() - 1),
-                        Some(idx) if idx > 0 => Some(idx - 1),
-                        Some(_) => Some(0),
-                    };
-                    if let Some(idx) = new_index {
-                        app.history_index = Some(idx);
-                        app.current_input = app.state.history[idx].clone();
-                        app.cursor_pos = app.current_input.chars().count();
-                    }
-                }
-            } else {
-                if app.selected_index > 0 {
-                    app.selected_index -= 1;
-                } else {
-                    app.selected_index = app.worktrees.len().saturating_sub(1);
-                }
-            }
-        }
-        Key::ArrowDown => {
-            if app.is_command_mode {
-                if let Some(idx) = app.history_index {
-                    if idx < app.state.history.len() - 1 {
-                        let next_idx = idx + 1;
-                        app.history_index = Some(next_idx);
-                        app.current_input = app.state.history[next_idx].clone();
-                        app.cursor_pos = app.current_input.chars().count();
-                    } else {
-                        app.history_index = None;
-                        app.current_input.clear();
-                        app.cursor_pos = 0;
-                    }
-                }
-            } else {
-                if app.selected_index < app.worktrees.len().saturating_sub(1) {
-                    app.selected_index += 1;
-                } else {
-                    app.selected_index = 0;
-                }
-            }
-        }
-        Key::Enter => {
-            if app.is_command_mode {
-                if !handle_command_execution(app)? {
-                    return Ok(false);
-                }
-            } else {
-                app.is_command_mode = true;
-                app.cursor_pos = 0;
-                app.history_index = None;
-            }
-        }
-        Key::Char(c) if app.is_command_mode => {
-            let byte_offset: usize = app.current_input.chars().take(app.cursor_pos).map(|c| c.len_utf8()).sum();
-            app.current_input.insert(byte_offset, c);
-            app.cursor_pos += 1;
-            app.history_index = None;
-        }
-        Key::Tab if app.is_command_mode => {
-            handle_tab_completion(app);
-        }
-        Key::Backspace if app.is_command_mode => {
-            if app.cursor_pos > 0 {
-                let byte_offset: usize = app.current_input.chars().take(app.cursor_pos - 1).map(|c| c.len_utf8()).sum();
-                app.current_input.remove(byte_offset);
-                app.cursor_pos -= 1;
-            }
-            app.history_index = None;
-        }
-        Key::Escape if app.is_command_mode => {
-            app.is_command_mode = false;
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history_index = None;
-        }
-        Key::Char('q') | Key::Escape if !app.is_command_mode => {
-            return Ok(false);
-        }
-        _ => {}
-    }
-
-    Ok(true)
-}
-
-fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
+pub fn execute_command(app: &mut HopApp) -> Result<bool> {
     if app.current_input.trim().is_empty() {
         app.current_input.clear();
         app.cursor_pos = 0;
@@ -158,6 +38,7 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
         let original_input = cmd_to_execute.trim();
         if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
             app.is_ai_chat_mode = false;
+            app.is_command_mode = false;
             app.current_input.clear();
             app.cursor_pos = 0;
             app.history_index = None;
@@ -186,9 +67,8 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     let cmd_name = parts[0].clone();
     let is_session_close = cmd_name == "session" && parts.get(1).map(|s| s.as_str()) == Some("close");
     
-    // terminalビューの判定（組み込みコマンド以外はターミナルフォールバックされるため）
-    let built_in_commands = ["close", "doctor", "history", "man", "session", "space"];
-    app.is_terminal_view = cmd_name == "terminal" || !built_in_commands.contains(&cmd_name.as_str());
+    // terminalビューの判定
+    app.is_terminal_view = cmd_name == "terminal";
 
     let (_term_height, term_width) = app.term.size();
     let left_width = 30;
@@ -224,15 +104,7 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
         }
         command.run(parts, &app.project_path, &selected_worktree, &app.term)
     } else {
-        // Fallback to terminal command
-        if let Some(terminal_command) = app.commands.iter().find(|c| c.name() == "terminal") {
-            let mut terminal_args = vec!["terminal".to_string()];
-            terminal_args.extend(parts);
-            terminal_command.run(terminal_args, &app.project_path, &selected_worktree, &app.term)
-        } else {
-            let available: Vec<String> = app.commands.iter().map(|c| c.name().to_string()).collect();
-            Ok(format!("Unknown command: {}\nAvailable commands: {}", cmd_name, available.join(", ")))
-        }
+        Ok(format!("no such command in usagi: {}", cmd_name))
     };
 
     // Re-enter alternate screen and hide cursor to ensure TUI state
@@ -309,64 +181,7 @@ fn handle_command_execution(app: &mut HopApp) -> Result<bool> {
     Ok(true)
 }
 
-fn handle_tab_completion(app: &mut HopApp) {
-    if app.tab_completion_base.is_none() {
-        app.tab_completion_base = Some(app.current_input.clone());
-        app.suggestion_index = None;
-    }
-
-    let input = app.tab_completion_base.as_ref().unwrap().clone();
-    let parts: Vec<&str> = input.split_whitespace().collect();
-    let mut suggestions: Vec<String> = Vec::new();
-
-    if !input.contains(' ') {
-        // コマンド名の補完
-        suggestions = app.commands.iter()
-            .map(|c| c.name().to_string())
-            .filter(|name| name.starts_with(&input))
-            .collect();
-    } else if !parts.is_empty() {
-        // 引数の補完
-        let cmd_name = parts[0];
-        if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
-            let last_part = if input.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
-            suggestions = command.subcommands().into_iter()
-                .filter(|(name, _)| name.starts_with(last_part))
-                .map(|(name, _)| name.clone())
-                .collect();
-        }
-    }
-
-    if suggestions.is_empty() {
-        return;
-    }
-
-    let next_idx = match app.suggestion_index {
-        Some(idx) => (idx + 1) % suggestions.len(),
-        None => 0,
-    };
-    app.suggestion_index = Some(next_idx);
-
-    let selected = &suggestions[next_idx];
-
-    if !input.contains(' ') {
-        app.current_input = selected.clone();
-    } else {
-        let head = if input.ends_with(' ') {
-            &input
-        } else {
-            input.rsplit_once(' ').map(|(h, _)| h).unwrap_or("")
-        };
-        if head.is_empty() || head.ends_with(' ') {
-            app.current_input = format!("{}{}", head, selected);
-        } else {
-            app.current_input = format!("{} {}", head, selected);
-        }
-    }
-    app.cursor_pos = app.current_input.chars().count();
-}
-
-fn push_to_history(history: &mut Vec<String>, text: &str, max_width: usize) {
+pub fn push_to_history(history: &mut Vec<String>, text: &str, max_width: usize) {
     if text.is_empty() {
         return;
     }

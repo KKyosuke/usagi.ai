@@ -63,9 +63,7 @@ fn main() -> Result<()> {
             presentation::cli::init::run(repository_url, directory, branch.clone())?;
         }
         Some(Commands::Hop) => {
-            if let Some((project_path, worktree)) = presentation::tui::open::run_terminal_ui()? {
-                presentation::cli::hop::run(project_path, worktree)?;
-            }
+            presentation::tui::app_runner::run()?;
         }
         Some(Commands::Doctor) => {
             let doctor = presentation::commands::doctor::DoctorCommand;

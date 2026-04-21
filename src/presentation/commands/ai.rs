@@ -198,7 +198,14 @@ impl Command for AiCommand {
                     break;
                 }
 
-                if let Ok(piece) = model.token_to_bytes(next_token, llama_cpp_2::model::Special::Tokenize) {
+                let piece_res = model.token_to_piece_bytes(next_token, 8, true, None).or_else(|e| {
+                    if let llama_cpp_2::TokenToStringError::InsufficientBufferSpace(i) = e {
+                        model.token_to_piece_bytes(next_token, (-i).try_into().unwrap_or(0), true, None)
+                    } else {
+                        Err(e)
+                    }
+                });
+                if let Ok(piece) = piece_res {
                     let token_str = String::from_utf8_lossy(&piece).to_string();
                     output_str.push_str(&token_str);
                     if output_str.contains("<end_of_turn>") || output_str.contains("<start_of_turn>") {
@@ -283,8 +290,14 @@ impl Command for AiCommand {
                 break;
             }
 
-            #[allow(deprecated)]
-            if let Ok(piece) = model.token_to_bytes(next_token, llama_cpp_2::model::Special::Tokenize) {
+            let piece_res = model.token_to_piece_bytes(next_token, 8, true, None).or_else(|e| {
+                if let llama_cpp_2::TokenToStringError::InsufficientBufferSpace(i) = e {
+                    model.token_to_piece_bytes(next_token, (-i).try_into().unwrap_or(0), true, None)
+                } else {
+                    Err(e)
+                }
+            });
+            if let Ok(piece) = piece_res {
                 let token_str = String::from_utf8_lossy(&piece).to_string();
                 output_str.push_str(&token_str);
                 let _ = term.write_str(&token_str);

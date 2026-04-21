@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::path::Path;
 use std::process::Command as ProcessCommand;
 use crate::presentation::commands::Command;
-use crate::presentation::tui::layout::animate_rabbit;
+use crate::presentation::tui::home::ui::animate_rabbit;
 use console::style;
 
 pub struct DoctorCommand;

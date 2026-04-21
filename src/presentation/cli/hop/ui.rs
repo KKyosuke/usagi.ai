@@ -1,7 +1,7 @@
 use anyhow::Result;
 use console::{style, measure_text_width, strip_ansi_codes};
 use crate::presentation::cli::hop::app::HopApp;
-use crate::presentation::tui::layout;
+use crate::presentation::tui::utils;
 
 pub fn render(app: &HopApp) -> Result<()> {
     let term = &app.term;
@@ -48,7 +48,7 @@ pub fn render(app: &HopApp) -> Result<()> {
                         format!("{} {}  {}  {}", cursor, mark, &wt.branch, status_icon)
                     }
                 } else {
-                    format!("   {}", style(layout::format_modified_at(&wt.modified_at)).dim())
+                    format!("   {}", style(utils::format_modified_at(&wt.modified_at)).dim())
                 }
             } else {
                 "".to_string()
@@ -127,81 +127,9 @@ pub fn render(app: &HopApp) -> Result<()> {
 }
 
 fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
-    let input_to_use = if let Some(base) = &app.tab_completion_base {
-        base.clone()
-    } else {
-        app.current_input.clone()
-    };
-    if input_to_use.is_empty() {
-        return Ok(());
-    }
     let term = &app.term;
-    let parts: Vec<&str> = input_to_use.split_whitespace().collect();
-    let mut suggestions: Vec<(String, String)> = Vec::new();
-    let mut usage_text: Option<String> = None;
+    let (usage_text, suggestions) = crate::presentation::cli::hop::completion::compute_suggestions(app);
 
-    if !input_to_use.contains(' ') {
-        // コマンド名のサジェスト
-        let mut current_suggestions: Vec<(String, String)> = app.commands.iter()
-            .filter(|c| c.name().starts_with(&input_to_use))
-            .map(|c| (c.name().to_string(), c.description().to_string()))
-            .collect();
-
-        // サジェストが1つだけの場合、その詳細な使用法を表示する
-        if current_suggestions.len() == 1 {
-            let name = current_suggestions[0].0.clone();
-            if let Some(command) = app.commands.iter().find(|c| c.name() == name) {
-                usage_text = command.usage(&[name.as_str()]);
-                if name == input_to_use {
-                    current_suggestions.clear();
-                }
-            }
-        }
-        suggestions = current_suggestions;
-    } else if !parts.is_empty() {
-        // コマンドの引数/サブコマンドのサジェスト
-        let cmd_name = parts[0];
-        if let Some(command) = app.commands.iter().find(|c| c.name() == cmd_name) {
-            let last_part = if input_to_use.ends_with(' ') { "" } else { parts.last().unwrap_or(&"") };
-            let mut current_suggestions: Vec<(String, String)> = command.subcommands()
-                .into_iter()
-                .filter(|(name, _)| name.starts_with(last_part))
-                .collect();
-
-            // サジェストが1つだけの場合、その詳細な使用法を表示する
-            if current_suggestions.len() == 1 {
-                let name = current_suggestions[0].0.clone();
-                let is_perfect_match = name == last_part;
-
-                let mut check_parts = parts.clone();
-                if !input_to_use.ends_with(' ') {
-                    if let Some(last) = check_parts.last_mut() {
-                        *last = name.as_str();
-                    }
-                } else {
-                    // すでにそのコマンドが入力済みの場合は、そのコマンド自体のサジェストは不要
-                    if parts.iter().any(|&p| p == name) {
-                        current_suggestions.clear();
-                    }
-                    check_parts.push(name.as_str());
-                }
-
-                if let Some(detail_usage) = command.usage(&check_parts) {
-                    usage_text = Some(detail_usage);
-                } else {
-                    usage_text = command.usage(&parts);
-                }
-
-                if is_perfect_match {
-                    current_suggestions.clear();
-                }
-            } else {
-                usage_text = command.usage(&parts);
-            }
-            suggestions = current_suggestions;
-        }
-    }
-    
     let mut offset = 5;
     let popup_x = left_width + 3; // | の右側
     let popup_width = width.saturating_sub(popup_x);

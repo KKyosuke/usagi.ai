@@ -183,7 +183,7 @@ Example: terminal /bin/bash"
                     ]));
                     workspace_lines.push(ratatui::text::Line::from(vec![
                         ratatui::text::Span::raw("   "),
-                        ratatui::text::Span::styled(crate::presentation::tui::layout::format_modified_at(&wt.modified_at), ratatui::style::Style::default().add_modifier(ratatui::style::Modifier::DIM)),
+                        ratatui::text::Span::styled(crate::presentation::tui::utils::format_modified_at(&wt.modified_at), ratatui::style::Style::default().add_modifier(ratatui::style::Modifier::DIM)),
                     ]));
                 }
                 f.render_widget(ratatui::widgets::Paragraph::new(workspace_lines), content_chunks[0]);
