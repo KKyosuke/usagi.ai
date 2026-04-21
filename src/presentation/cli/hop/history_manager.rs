@@ -12,14 +12,10 @@ pub struct HistoryManager {
 }
 
 impl HistoryManager {
-    pub fn new(project_path: PathBuf, max_lines: usize) -> Result<Self> {
+    pub fn new(project_path: PathBuf, _max_lines: usize) -> Result<Self> {
         let input_history = get_project_history(&project_path).unwrap_or_default();
         
-        let mut terminal_lines: Vec<String> = input_history.history.iter().filter(|s| !s.trim().is_empty()).cloned().collect();
-        if terminal_lines.len() > max_lines {
-            let skip_count = terminal_lines.len() - max_lines;
-            terminal_lines = terminal_lines.into_iter().skip(skip_count).collect();
-        }
+        let terminal_lines = Vec::new();
 
         Ok(Self {
             project_path,

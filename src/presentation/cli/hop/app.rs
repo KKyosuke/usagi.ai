@@ -91,7 +91,9 @@ impl HopApp {
 
     pub fn save_history(&mut self, cmd: &str) -> Result<()> {
         self.refresh_state()?;
-        self.history.save_input(cmd)?;
+        if !self.is_ai_chat_mode {
+            self.history.save_input(cmd)?;
+        }
         Ok(())
     }
 }
