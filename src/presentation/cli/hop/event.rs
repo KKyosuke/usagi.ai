@@ -26,6 +26,64 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
         app.suggestion_index = None;
     }
 
+    if app.is_model_selection_mode {
+        match key {
+            Key::ArrowUp => {
+                if app.model_selection_index > 0 {
+                    app.model_selection_index -= 1;
+                } else if !app.available_models.is_empty() {
+                    app.model_selection_index = app.available_models.len() - 1;
+                }
+                return Ok(true);
+            }
+            Key::ArrowDown => {
+                if app.model_selection_index < app.available_models.len().saturating_sub(1) {
+                    app.model_selection_index += 1;
+                } else {
+                    app.model_selection_index = 0;
+                }
+                return Ok(true);
+            }
+            Key::Enter => {
+                if !app.available_models.is_empty() {
+                    let selected = app.available_models[app.model_selection_index].clone();
+                    if let Some(user_dirs) = directories::UserDirs::new() {
+                        let models_dir = user_dirs.home_dir().join(".usagi").join("models");
+                        let full_path = models_dir.join(&selected).to_string_lossy().to_string();
+                        app.state.ai_model = Some(full_path.clone());
+                        let _ = crate::infrastructure::project_state::save_project_state(&app.project_path, &app.state);
+                        
+                        let (_term_height, term_width) = app.term.size();
+                        let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
+                        app.history.push_output(&format!("{}", console::style(format!("Default AI model set to: {}", selected)).green()), right_width);
+                    }
+                }
+                
+                app.is_model_selection_mode = false;
+                
+                if app.enter_chat_on_selection && app.state.ai_model.is_some() {
+                    app.is_ai_chat_mode = true;
+                    app.history.clear_output();
+                    let (_term_height, term_width) = app.term.size();
+                    let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
+                    app.history.push_output(&format!("{}", console::style("🐰 Entered AI Chat Mode. Type 'exit' to end.").cyan().bold()), right_width);
+                }
+                
+                return Ok(true);
+            }
+            Key::Escape | Key::Char('q') => {
+                app.is_model_selection_mode = false;
+                let (_term_height, term_width) = app.term.size();
+                let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
+                app.history.push_output(&format!("{}", console::style("Model selection cancelled.").yellow()), right_width);
+                return Ok(true);
+            }
+            _ => {
+                return Ok(true); // Ignore other keys
+            }
+        }
+    }
+
     match key {
         Key::ArrowLeft if app.is_command_mode => {
             if app.cursor_pos > 0 {

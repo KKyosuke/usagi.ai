@@ -108,8 +108,12 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.write_str(&help_display)?;
 
     // コマンドモードのポップアップ表示
-    if app.is_command_mode && !app.is_ai_chat_mode {
+    if app.is_command_mode && !app.is_ai_chat_mode && !app.is_model_selection_mode {
         render_command_popup(app, height as usize, width as usize, left_width)?;
+    }
+
+    if app.is_model_selection_mode {
+        render_model_selection_popup(app, height as usize, width as usize, left_width)?;
     }
 
     if app.is_command_mode {
@@ -160,6 +164,59 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
             }
         }
     }
+
+    Ok(())
+}
+
+fn render_model_selection_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
+    let term = &app.term;
+    let popup_x = left_width + 4;
+    let popup_width = width.saturating_sub(popup_x).saturating_sub(2);
+
+    let models = &app.available_models;
+    if models.is_empty() {
+        return Ok(());
+    }
+
+    let title = " AI model is not set. Please select a default model. ";
+    let display_count = models.len().min(10);
+    // UIの描画オフセット。コマンド/ヘルプ入力欄より上の空間に表示する
+    let box_height = display_count + 2; 
+    let mut offset = 4 + box_height;
+
+    // 上枠
+    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+    term.write_str(&style(format!("┌{:─<width$}┐", "", width = popup_width)).cyan().to_string())?;
+    offset -= 1;
+    
+    // タイトル
+    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+    let left_pad = popup_width.saturating_sub(title.chars().count()) / 2;
+    let title_line = format!("│{:space_width$}{}{:<padding$}│", "", title, "", space_width = left_pad, padding = popup_width.saturating_sub(left_pad + title.chars().count()));
+    term.write_str(&style(title_line).cyan().bold().to_string())?;
+    offset -= 1;
+
+    // 区切り線
+    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+    term.write_str(&style(format!("├{:─<width$}┤", "", width = popup_width)).cyan().to_string())?;
+    offset -= 1;
+
+    for (idx, name) in models.iter().take(display_count).enumerate() {
+        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+        let prefix = if idx == app.model_selection_index { "> " } else { "  " };
+        let content = format!("│ {}{:<width$}│", prefix, name, width = popup_width.saturating_sub(3));
+        
+        if idx == app.model_selection_index {
+            term.write_str(&style(content).black().on_cyan().to_string())?;
+        } else {
+            term.write_str(&style(content).cyan().to_string())?;
+        }
+        offset -= 1;
+    }
+
+    // 下枠
+    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+    term.write_str(&style(format!("└{:─<width$}┘", "", width = popup_width)).cyan().to_string())?;
 
     Ok(())
 }

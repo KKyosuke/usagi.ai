@@ -20,8 +20,49 @@ pub fn execute_command(app: &mut HopApp) -> Result<bool> {
     let mut parts = parts;
     let selected_worktree = app.worktrees[app.selected_index].clone();
 
-    // Custom interception for AI Chat Mode entering
-    if parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat" {
+    let is_ai_set_model = parts.len() == 2 && parts[0] == "ai" && parts[1] == "--set-model";
+    let is_ai_chat = parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat";
+
+    if is_ai_set_model || (is_ai_chat && app.state.ai_model.is_none()) {
+        let (_term_height, term_width) = app.term.size();
+        let left_width = 30;
+        let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+        let prompt_text = format!("{} {} {}", style(&selected_worktree).cyan(), ">", cmd_to_execute);
+        app.history.push_output(&prompt_text, right_width);
+
+        if let Some(user_dirs) = directories::UserDirs::new() {
+            let models_dir = user_dirs.home_dir().join(".usagi").join("models");
+            let mut available_models = Vec::new();
+            if models_dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&models_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_file() && path.extension().map_or(false, |ext| ext == "gguf") {
+                            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                available_models.push(name.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if available_models.is_empty() {
+                app.history.push_output(&format!("{}", style("No models found in ~/.usagi/models/. Please run 'usagi ai install' first.").red()), right_width);
+            } else {
+                app.available_models = available_models;
+                app.model_selection_index = 0;
+                app.enter_chat_on_selection = is_ai_chat;
+                app.is_model_selection_mode = true;
+            }
+        }
+
+        app.current_input.clear();
+        app.cursor_pos = 0;
+        app.history.reset_input_index();
+        return Ok(true);
+    }
+
+    if is_ai_chat && !app.state.ai_model.is_none() {
         app.is_ai_chat_mode = true;
         app.current_input.clear();
         app.cursor_pos = 0;

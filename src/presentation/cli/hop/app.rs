@@ -22,6 +22,10 @@ pub struct HopApp {
     pub is_ai_chat_mode: bool,
     pub tab_completion_base: Option<String>,
     pub suggestion_index: Option<usize>,
+    pub is_model_selection_mode: bool,
+    pub available_models: Vec<String>,
+    pub model_selection_index: usize,
+    pub enter_chat_on_selection: bool,
 }
 
 impl HopApp {
@@ -67,6 +71,10 @@ impl HopApp {
             is_ai_chat_mode: false,
             tab_completion_base: None,
             suggestion_index: None,
+            is_model_selection_mode: false,
+            available_models: Vec::new(),
+            model_selection_index: 0,
+            enter_chat_on_selection: false,
         })
     }
 
