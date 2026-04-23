@@ -11,7 +11,7 @@ pub struct SessionCommand;
 const NAME: &str = "session";
 const DESCRIPTION: &str = "Manage sessions";
 const HELP: &str = "Manages sessions (new working branches and worktrees).
-Usage: session start <branch_name> [--base <base_branch>]
+Usage: session start <branch_name> [--base <base_branch>] [--remote]
        session close <branch_name>
        session update [--all] [--base <base_branch>]
        session status <branch_name> <status>
@@ -39,8 +39,8 @@ impl Command for SessionCommand {
         };
 
         match cli.command {
-            Some(SessionCommands::Start { branch, base }) => {
-                start_session(&branch, base, project_path)
+            Some(SessionCommands::Start { branch, base, remote }) => {
+                start_session(branch, base, remote, project_path)
             }
             Some(SessionCommands::Close { branch }) => {
                 close_session(&branch, project_path)
@@ -103,10 +103,13 @@ pub enum SessionCommands {
     /// Start a new session
     Start {
         /// Branch name
-        branch: String,
+        branch: Option<String>,
         /// Base branch (optional, default: origin default branch)
         #[arg(short, long)]
         base: Option<String>,
+        /// Select base branch from remote branches
+        #[arg(short, long)]
+        remote: bool,
     },
     /// Close a session
     Close {
@@ -131,22 +134,48 @@ pub enum SessionCommands {
     },
 }
 
-fn start_session(branch: &str, base: Option<String>, project_path: &Path) -> Result<String> {
-    if git::branch_exists(branch, project_path)? {
+fn start_session(branch: Option<String>, base: Option<String>, remote: bool, project_path: &Path) -> Result<String> {
+    let base_branch = if remote {
+        git::fetch(project_path, "origin")?;
+        let remote_branches = git::list_remote_branches(project_path)?;
+        if remote_branches.is_empty() {
+            return Err(anyhow!("No remote branches found."));
+        }
+        inquire::Select::new("Select base branch from remote:", remote_branches)
+            .prompt()
+            .map_err(|e| anyhow!("Failed to select remote branch: {}", e))?
+    } else {
+        match base {
+            Some(b) => b,
+            None => git::get_default_branch(project_path)?,
+        }
+    };
+
+    let branch = match branch {
+        Some(b) => b,
+        None => {
+            let default_name = if remote {
+                base_branch.split('/').last().unwrap_or(&base_branch).to_string()
+            } else {
+                "".to_string()
+            };
+            inquire::Text::new("Enter session branch name:")
+                .with_default(&default_name)
+                .prompt()
+                .map_err(|e| anyhow!("Failed to get branch name: {}", e))?
+        }
+    };
+
+    if git::branch_exists(&branch, project_path)? {
         return Err(anyhow!("Branch '{}' already exists.", branch));
     }
 
-    let base_branch = match base {
-        Some(b) => b,
-        None => git::get_default_branch(project_path)?,
-    };
-
-    let worktree_path = project_path.join(branch);
+    let worktree_path = project_path.join(&branch);
     if worktree_path.exists() {
         return Err(anyhow!("Directory '{}' already exists.", worktree_path.display()));
     }
 
-    git::create_worktree(project_path, branch, &worktree_path, &base_branch)?;
+    git::create_worktree(project_path, &branch, &worktree_path, &base_branch)?;
 
     let mut state = get_project_state(project_path)?;
     if !state.worktrees.iter().any(|w| w.branch == branch) {

@@ -147,3 +147,28 @@ pub fn get_current_branch(repo_path: &Path) -> Result<String> {
         .ok_or_else(|| anyhow!("HEAD is not a branch"))?;
     Ok(branch.to_string())
 }
+
+/// Returns a list of remote branches.
+pub fn list_remote_branches(project_path: &Path) -> Result<Vec<String>> {
+    let output = ProcessCommand::new("git")
+        .arg("-C")
+        .arg(project_path.join("main"))
+        .arg("branch")
+        .arg("-r")
+        .output()
+        .context("Failed to execute git branch -r")?;
+
+    if !output.status.success() {
+        return Err(anyhow!("git branch -r failed."));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let branches = stdout
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.contains("->"))
+        .map(|line| line.to_string())
+        .collect();
+
+    Ok(branches)
+}
