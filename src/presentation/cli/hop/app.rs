@@ -7,6 +7,19 @@ use crate::presentation::cli::hop::history_manager::HistoryManager;
 use crate::presentation::commands::{self, Command};
 use crate::presentation::tui::mode::AppMode;
 
+pub struct SelectModal {
+    pub title: String,
+    pub items: Vec<String>,
+    pub selected_index: usize,
+    pub on_select: Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>,
+}
+
+pub struct InputModal {
+    pub title: String,
+    pub value: String,
+    pub on_submit: Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>,
+}
+
 pub struct HopApp {
     pub project_path: PathBuf,
     pub state: ProjectState,
@@ -22,19 +35,8 @@ pub struct HopApp {
     pub is_ai_chat_mode: bool,
     pub tab_completion_base: Option<String>,
     pub suggestion_index: Option<usize>,
-    pub is_modal_mode: bool,
-    pub modal_title: String,
-    pub modal_items: Vec<String>,
-    pub modal_selected_index: usize,
-    pub modal_on_select: Option<Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>>,
-    pub is_input_modal_mode: bool,
-    pub input_modal_title: String,
-    pub input_modal_value: String,
-    pub input_modal_on_submit: Option<Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>>,
-    pub is_model_selection_mode: bool,
-    pub available_models: Vec<String>,
-    pub model_selection_index: usize,
-    pub enter_chat_on_selection: bool,
+    pub select_modal: Option<SelectModal>,
+    pub input_modal: Option<InputModal>,
 }
 
 impl HopApp {
@@ -48,6 +50,23 @@ impl HopApp {
         let history = HistoryManager::new(project_path.clone(), max_history)?;
 
         std::env::set_current_dir(&project_path).context(format!("Failed to change directory to {}", project_path.display()))?;
+
+        let mut state = state;
+        let mut changed = false;
+        for worktree in &mut state.worktrees {
+            let worktree_path = project_path.join(&worktree.directory);
+            if worktree_path.exists() {
+                if let Ok(has_upstream) = crate::infrastructure::git::has_upstream(&worktree_path) {
+                    if worktree.has_upstream != has_upstream {
+                        worktree.has_upstream = has_upstream;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if changed {
+            let _ = crate::infrastructure::project_state::save_project_state(&project_path, &state);
+        }
 
         let worktrees: Vec<String> = state.worktrees.iter().map(|w| w.branch.clone()).collect();
         
@@ -80,19 +99,8 @@ impl HopApp {
             is_ai_chat_mode: false,
             tab_completion_base: None,
             suggestion_index: None,
-            is_modal_mode: false,
-            modal_title: String::new(),
-            modal_items: Vec::new(),
-            modal_selected_index: 0,
-            modal_on_select: None,
-            is_input_modal_mode: false,
-            input_modal_title: String::new(),
-            input_modal_value: String::new(),
-            input_modal_on_submit: None,
-            is_model_selection_mode: false,
-            available_models: Vec::new(),
-            model_selection_index: 0,
-            enter_chat_on_selection: false,
+            select_modal: None,
+            input_modal: None,
         })
     }
 
@@ -107,7 +115,22 @@ impl HopApp {
     }
 
     pub fn refresh_state(&mut self) -> Result<()> {
-        if let Ok(new_state) = get_project_state(&self.project_path) {
+        if let Ok(mut new_state) = get_project_state(&self.project_path) {
+            let mut changed = false;
+            for worktree in &mut new_state.worktrees {
+                let worktree_path = self.project_path.join(&worktree.directory);
+                if worktree_path.exists() {
+                    if let Ok(has_upstream) = crate::infrastructure::git::has_upstream(&worktree_path) {
+                        if worktree.has_upstream != has_upstream {
+                            worktree.has_upstream = has_upstream;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+            if changed {
+                let _ = crate::infrastructure::project_state::save_project_state(&self.project_path, &new_state);
+            }
             self.state = new_state;
             self.worktrees = self.state.worktrees.iter().map(|w| w.branch.clone()).collect();
         }

@@ -53,6 +53,8 @@ pub struct Worktree {
     pub modified_at: String,
     #[serde(default)]
     pub status: SessionStatus,
+    #[serde(default)]
+    pub has_upstream: bool,
 }
 
 impl Worktree {
@@ -93,6 +95,7 @@ mod tests {
                 default: true,
                 modified_at: "".to_string(),
                 status: SessionStatus::Todo,
+                has_upstream: false,
             }],
             current_worktree: Some("main".to_string()),
             last_updated: None,

@@ -9,10 +9,12 @@ fn test_project_state_basic() {
             directory: "main".to_string(),
             default: true,
             modified_at: "".to_string(),
+            status: usagi::domain::project::SessionStatus::Todo,
+            has_upstream: false,
         }],
         current_worktree: Some("main".to_string()),
-        history: vec![],
         last_updated: None,
+        ai_model: None,
     };
     
     state.update_last_updated();

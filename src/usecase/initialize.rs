@@ -58,6 +58,7 @@ pub fn run(
             default: true,
             modified_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
             status: crate::domain::project::SessionStatus::Todo,
+            has_upstream: git::has_upstream(main_dir).unwrap_or(false),
         }],
         current_worktree: Some(current_branch),
         last_updated: None,

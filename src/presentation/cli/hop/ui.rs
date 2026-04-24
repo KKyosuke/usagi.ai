@@ -1,6 +1,6 @@
 use anyhow::Result;
 use console::{style, measure_text_width, strip_ansi_codes};
-use crate::presentation::cli::hop::app::HopApp;
+use crate::presentation::cli::hop::app::{HopApp, SelectModal, InputModal};
 use crate::presentation::tui::utils;
 use crate::presentation::ui::modal::SelectionModal;
 
@@ -43,10 +43,15 @@ pub fn render(app: &HopApp) -> Result<()> {
                         crate::domain::project::SessionStatus::Running => style(wt.status.icon()).green().bold().to_string(),
                         crate::domain::project::SessionStatus::Done => style(wt.status.icon()).blue().bold().to_string(),
                     };
-                    if wt_idx == app.selected_index {
-                        format!("{} {}  {}  {}", cursor, mark, style(&wt.branch).cyan().bold(), status_icon)
+                    let upstream_icon = if wt.has_upstream {
+                        style(" 󰄵").cyan().to_string()
                     } else {
-                        format!("{} {}  {}  {}", cursor, mark, &wt.branch, status_icon)
+                        "".to_string()
+                    };
+                    if wt_idx == app.selected_index {
+                        format!("{} {}  {}{}  {}", cursor, mark, style(&wt.branch).cyan().bold(), upstream_icon, status_icon)
+                    } else {
+                        format!("{} {}  {}{}  {}", cursor, mark, &wt.branch, upstream_icon, status_icon)
                     }
                 } else {
                     format!("   {}", style(utils::format_modified_at(&wt.modified_at)).dim())
@@ -109,29 +114,25 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.write_str(&help_display)?;
 
     // コマンドモードのポップアップ表示
-    if app.is_command_mode && !app.is_ai_chat_mode && !app.is_model_selection_mode {
+    if app.is_command_mode && !app.is_ai_chat_mode && app.select_modal.is_none() {
         render_command_popup(app, height as usize, width as usize, left_width)?;
     }
 
-    if app.is_model_selection_mode {
-        render_model_selection_popup(app, height as usize, width as usize, left_width)?;
+    if let Some(modal) = &app.select_modal {
+        render_generic_modal(app, modal, height as usize, width as usize, left_width)?;
     }
 
-    if app.is_modal_mode {
-        render_generic_modal(app, height as usize, width as usize, left_width)?;
+    if let Some(modal) = &app.input_modal {
+        render_input_modal(app, modal, height as usize, width as usize, left_width)?;
     }
 
-    if app.is_input_modal_mode {
-        render_input_modal(app, height as usize, width as usize, left_width)?;
-    }
-
-    if app.is_command_mode && !app.is_input_modal_mode {
+    if app.is_command_mode && app.input_modal.is_none() {
         let input_prefix: String = app.current_input.chars().take(app.cursor_pos).collect();
         let prompt_width = if app.is_ai_chat_mode { "(ai) >".len() } else { "|".len() };
         let cursor_x = left_width + 2 + prompt_width + measure_text_width(&input_prefix);
         term.move_cursor_to(cursor_x, height as usize - 3)?;
         term.show_cursor()?;
-    } else if !app.is_input_modal_mode {
+    } else if app.input_modal.is_none() {
         term.hide_cursor()?;
     }
 
@@ -177,25 +178,16 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
     Ok(())
 }
 
-fn render_model_selection_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
-    let modal = SelectionModal::new(
-        " AI model is not set. Please select a default model. ",
-        &app.available_models,
-        app.model_selection_index,
+fn render_generic_modal(app: &HopApp, modal: &SelectModal, height: usize, width: usize, left_width: usize) -> Result<()> {
+    let modal_ui = SelectionModal::new(
+        &modal.title,
+        &modal.items,
+        modal.selected_index,
     );
-    modal.render(&app.term, height, width, left_width)
+    modal_ui.render(&app.term, height, width, left_width)
 }
 
-fn render_generic_modal(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
-    let modal = SelectionModal::new(
-        &app.modal_title,
-        &app.modal_items,
-        app.modal_selected_index,
-    );
-    modal.render(&app.term, height, width, left_width)
-}
-
-fn render_input_modal(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
+fn render_input_modal(app: &HopApp, modal: &InputModal, height: usize, width: usize, left_width: usize) -> Result<()> {
     let term = &app.term;
     let popup_x = left_width + 4;
     let popup_width = width.saturating_sub(popup_x).saturating_sub(2);
@@ -209,14 +201,14 @@ fn render_input_modal(app: &HopApp, height: usize, width: usize, left_width: usi
     
     // タイトル
     term.move_cursor_to(popup_x, height.saturating_sub(offset - 1))?;
-    let title_content = format!("? {}", app.input_modal_title);
+    let title_content = format!("? {}", modal.title);
     let title_line = format!("│ {:<width$} │", title_content, width = popup_width.saturating_sub(2));
     term.write_str(&style(title_line).cyan().bold().to_string())?;
 
     // 入力値
     term.move_cursor_to(popup_x, height.saturating_sub(offset - 2))?;
     let input_prefix = "> ";
-    let input_line = format!("│ {}{:<width$} │", input_prefix, app.input_modal_value, width = popup_width.saturating_sub(2 + measure_text_width(input_prefix)));
+    let input_line = format!("│ {}{:<width$} │", input_prefix, modal.value, width = popup_width.saturating_sub(2 + measure_text_width(input_prefix)));
     term.write_str(&style(input_line).white().to_string())?;
 
     // 下枠
@@ -225,7 +217,7 @@ fn render_input_modal(app: &HopApp, height: usize, width: usize, left_width: usi
 
     // カーソル位置を計算して移動
     let prefix_width = measure_text_width("│ ") + measure_text_width(input_prefix);
-    let cursor_x = popup_x + prefix_width + measure_text_width(&app.input_modal_value);
+    let cursor_x = popup_x + prefix_width + measure_text_width(&modal.value);
     term.move_cursor_to(cursor_x, height.saturating_sub(offset - 2))?;
     term.show_cursor()?;
 

@@ -11,11 +11,12 @@ pub struct SessionCommand;
 const NAME: &str = "session";
 const DESCRIPTION: &str = "Manage sessions";
 const HELP: &str = "Manages sessions (new working branches and worktrees).
-Usage: session start <branch_name> [--base <base_branch>] [--remote]
-       session close <branch_name>
+Usage: session start [branch_name] [--base <base_branch>] [--remote]
+       session close [branch_name]
        session update [--all] [--base <base_branch>]
        session status <branch_name> <status>
-Closes and removes an existing session (removes worktree and deletes the local branch).";
+Closes and removes an existing session (removes worktree and deletes the local branch).
+If branch_name is omitted, a list of available sessions will be displayed to choose from.";
 
 impl Command for SessionCommand {
     fn name(&self) -> &str {
@@ -43,7 +44,7 @@ impl Command for SessionCommand {
                 start_session(branch, base, remote, project_path)
             }
             Some(SessionCommands::Close { branch }) => {
-                close_session(&branch, project_path)
+                close_session(branch, project_path)
             }
             Some(SessionCommands::Update { all, base }) => {
                 update_sessions(all, base, project_path)
@@ -100,9 +101,9 @@ pub struct SessionCli {
 
 #[derive(Subcommand, Debug)]
 pub enum SessionCommands {
-    /// Start a new session
+    /// Start a new session. If branch is omitted, you will be prompted to enter one.
     Start {
-        /// Branch name
+        /// Branch name (optional)
         branch: Option<String>,
         /// Base branch (optional, default: origin default branch)
         #[arg(short, long)]
@@ -111,10 +112,10 @@ pub enum SessionCommands {
         #[arg(short, long)]
         remote: bool,
     },
-    /// Close a session
+    /// Close a session. If branch is omitted, a list of sessions will be displayed.
     Close {
-        /// Branch name
-        branch: String,
+        /// Branch name (optional)
+        branch: Option<String>,
     },
     /// Update session(s)
     Update {
@@ -161,7 +162,13 @@ fn start_session(branch: Option<String>, base: Option<String>, remote: bool, pro
         Some(b) => b,
         None => {
             let default_name = if remote {
-                base_branch.split('/').last().unwrap_or(&base_branch).to_string()
+                if let Some(stripped) = base_branch.strip_prefix("origin/") {
+                    stripped.to_string()
+                } else if let Some(slash_idx) = base_branch.find('/') {
+                    base_branch[slash_idx + 1..].to_string()
+                } else {
+                    base_branch.to_string()
+                }
             } else {
                 "".to_string()
             };
@@ -185,7 +192,7 @@ fn start_session(branch: Option<String>, base: Option<String>, remote: bool, pro
         return Err(anyhow!("Directory '{}' already exists.", worktree_path.display()));
     }
 
-    git::create_worktree(project_path, &branch, &worktree_path, &base_branch)?;
+    git::create_worktree(project_path, &branch, &worktree_path, &base_branch, remote)?;
 
     let mut state = get_project_state(project_path)?;
     if !state.worktrees.iter().any(|w| w.branch == branch) {
@@ -195,6 +202,7 @@ fn start_session(branch: Option<String>, base: Option<String>, remote: bool, pro
             default: false,
             modified_at: "".to_string(),
             status: crate::domain::project::SessionStatus::Todo,
+            has_upstream: git::has_upstream(&worktree_path).unwrap_or(false),
         };
         worktree.update_modified_at();
         state.worktrees.push(worktree);
@@ -206,22 +214,42 @@ fn start_session(branch: Option<String>, base: Option<String>, remote: bool, pro
     Ok(format!("Session started: branch '{}' in '{}'", branch, worktree_path.display()))
 }
 
-fn close_session(branch: &str, project_path: &Path) -> Result<String> {
+fn close_session(branch: Option<String>, project_path: &Path) -> Result<String> {
     let mut state = get_project_state(project_path)?;
+
+    let branch = match branch {
+        Some(b) => b,
+        None => {
+            let session_branches: Vec<String> = state
+                .worktrees
+                .iter()
+                .filter(|w| !w.default) // デフォルトブランチ（通常はmain）は削除させない方が安全かもしれない
+                .map(|w| w.branch.clone())
+                .collect();
+
+            if session_branches.is_empty() {
+                return Err(anyhow!("No sessions available to close."));
+            }
+
+            inquire::Select::new("Select session branch to close:", session_branches)
+                .prompt()
+                .map_err(|e| anyhow!("Failed to select branch: {}", e))?
+        }
+    };
 
     if !state.worktrees.iter().any(|w| w.branch == branch) {
         return Err(anyhow!("Session '{}' not found in project state.", branch));
     }
 
-    let worktree_path = project_path.join(branch);
+    let worktree_path = project_path.join(&branch);
     if worktree_path.exists() {
         git::remove_worktree(project_path, &worktree_path)?;
     }
 
-    git::delete_branch(project_path, branch)?;
+    git::delete_branch(project_path, &branch)?;
 
     state.worktrees.retain(|w| w.branch != branch);
-    if state.current_worktree.as_deref() == Some(branch) {
+    if state.current_worktree.as_deref() == Some(&branch) {
         state.current_worktree = state.worktrees.first().map(|w| w.branch.clone());
     }
     state.update_last_updated();

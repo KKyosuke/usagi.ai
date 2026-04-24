@@ -50,6 +50,7 @@ mod tests {
                 default: true,
                 modified_at: chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
                 status: crate::domain::project::SessionStatus::Todo,
+                has_upstream: false,
             }],
             current_worktree: Some(worktree_path.to_string_lossy().to_string()),
             last_updated: None,
