@@ -26,6 +26,77 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
         app.suggestion_index = None;
     }
 
+    if app.is_input_modal_mode {
+        match key {
+            Key::Enter => {
+                let value = app.input_modal_value.clone();
+                app.is_input_modal_mode = false;
+                app.input_modal_value.clear();
+                if let Some(on_submit) = app.input_modal_on_submit.take() {
+                    on_submit(app, value)?;
+                }
+                return Ok(true);
+            }
+            Key::Escape => {
+                app.is_input_modal_mode = false;
+                app.input_modal_value.clear();
+                app.input_modal_on_submit = None;
+                return Ok(true);
+            }
+            Key::Backspace => {
+                app.input_modal_value.pop();
+                return Ok(true);
+            }
+            Key::Char(c) => {
+                app.input_modal_value.push(c);
+                return Ok(true);
+            }
+            _ => return Ok(true),
+        }
+    }
+
+    if app.is_modal_mode {
+        match key {
+            Key::ArrowUp => {
+                if app.modal_selected_index > 0 {
+                    app.modal_selected_index -= 1;
+                } else if !app.modal_items.is_empty() {
+                    app.modal_selected_index = app.modal_items.len() - 1;
+                }
+                return Ok(true);
+            }
+            Key::ArrowDown => {
+                if app.modal_selected_index < app.modal_items.len().saturating_sub(1) {
+                    app.modal_selected_index += 1;
+                } else {
+                    app.modal_selected_index = 0;
+                }
+                return Ok(true);
+            }
+            Key::Enter => {
+                if !app.modal_items.is_empty() {
+                    let selected = app.modal_items[app.modal_selected_index].clone();
+                    app.is_modal_mode = false;
+                    app.modal_items.clear();
+                    if let Some(on_select) = app.modal_on_select.take() {
+                        on_select(app, selected)?;
+                    }
+                } else {
+                    app.is_modal_mode = false;
+                    app.modal_items.clear();
+                }
+                return Ok(true);
+            }
+            Key::Escape | Key::Char('q') => {
+                app.is_modal_mode = false;
+                app.modal_items.clear();
+                app.modal_on_select = None;
+                return Ok(true);
+            }
+            _ => return Ok(true),
+        }
+    }
+
     if app.is_model_selection_mode {
         match key {
             Key::ArrowUp => {

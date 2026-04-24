@@ -2,6 +2,7 @@ use anyhow::Result;
 use console::{style, measure_text_width, strip_ansi_codes};
 use crate::presentation::cli::hop::app::HopApp;
 use crate::presentation::tui::utils;
+use crate::presentation::ui::modal::SelectionModal;
 
 pub fn render(app: &HopApp) -> Result<()> {
     let term = &app.term;
@@ -116,13 +117,21 @@ pub fn render(app: &HopApp) -> Result<()> {
         render_model_selection_popup(app, height as usize, width as usize, left_width)?;
     }
 
-    if app.is_command_mode {
+    if app.is_modal_mode {
+        render_generic_modal(app, height as usize, width as usize, left_width)?;
+    }
+
+    if app.is_input_modal_mode {
+        render_input_modal(app, height as usize, width as usize, left_width)?;
+    }
+
+    if app.is_command_mode && !app.is_input_modal_mode {
         let input_prefix: String = app.current_input.chars().take(app.cursor_pos).collect();
         let prompt_width = if app.is_ai_chat_mode { "(ai) >".len() } else { "|".len() };
         let cursor_x = left_width + 2 + prompt_width + measure_text_width(&input_prefix);
         term.move_cursor_to(cursor_x, height as usize - 3)?;
         term.show_cursor()?;
-    } else {
+    } else if !app.is_input_modal_mode {
         term.hide_cursor()?;
     }
 
@@ -169,54 +178,56 @@ fn render_command_popup(app: &HopApp, height: usize, width: usize, left_width: u
 }
 
 fn render_model_selection_popup(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
+    let modal = SelectionModal::new(
+        " AI model is not set. Please select a default model. ",
+        &app.available_models,
+        app.model_selection_index,
+    );
+    modal.render(&app.term, height, width, left_width)
+}
+
+fn render_generic_modal(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
+    let modal = SelectionModal::new(
+        &app.modal_title,
+        &app.modal_items,
+        app.modal_selected_index,
+    );
+    modal.render(&app.term, height, width, left_width)
+}
+
+fn render_input_modal(app: &HopApp, height: usize, width: usize, left_width: usize) -> Result<()> {
     let term = &app.term;
     let popup_x = left_width + 4;
     let popup_width = width.saturating_sub(popup_x).saturating_sub(2);
 
-    let models = &app.available_models;
-    if models.is_empty() {
-        return Ok(());
-    }
-
-    let title = " AI model is not set. Please select a default model. ";
-    let display_count = models.len().min(10);
-    // UIの描画オフセット。コマンド/ヘルプ入力欄より上の空間に表示する
-    let box_height = display_count + 2; 
-    let mut offset = 4 + box_height;
+    let box_height = 4;
+    let offset = 4 + box_height;
 
     // 上枠
     term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
     term.write_str(&style(format!("┌{:─<width$}┐", "", width = popup_width)).cyan().to_string())?;
-    offset -= 1;
     
     // タイトル
-    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-    let left_pad = popup_width.saturating_sub(title.chars().count()) / 2;
-    let title_line = format!("│{:space_width$}{}{:<padding$}│", "", title, "", space_width = left_pad, padding = popup_width.saturating_sub(left_pad + title.chars().count()));
+    term.move_cursor_to(popup_x, height.saturating_sub(offset - 1))?;
+    let title_content = format!("? {}", app.input_modal_title);
+    let title_line = format!("│ {:<width$} │", title_content, width = popup_width.saturating_sub(2));
     term.write_str(&style(title_line).cyan().bold().to_string())?;
-    offset -= 1;
 
-    // 区切り線
-    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-    term.write_str(&style(format!("├{:─<width$}┤", "", width = popup_width)).cyan().to_string())?;
-    offset -= 1;
-
-    for (idx, name) in models.iter().take(display_count).enumerate() {
-        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-        let prefix = if idx == app.model_selection_index { "> " } else { "  " };
-        let content = format!("│ {}{:<width$}│", prefix, name, width = popup_width.saturating_sub(3));
-        
-        if idx == app.model_selection_index {
-            term.write_str(&style(content).black().on_cyan().to_string())?;
-        } else {
-            term.write_str(&style(content).cyan().to_string())?;
-        }
-        offset -= 1;
-    }
+    // 入力値
+    term.move_cursor_to(popup_x, height.saturating_sub(offset - 2))?;
+    let input_prefix = "> ";
+    let input_line = format!("│ {}{:<width$} │", input_prefix, app.input_modal_value, width = popup_width.saturating_sub(2 + measure_text_width(input_prefix)));
+    term.write_str(&style(input_line).white().to_string())?;
 
     // 下枠
-    term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
+    term.move_cursor_to(popup_x, height.saturating_sub(offset - 3))?;
     term.write_str(&style(format!("└{:─<width$}┘", "", width = popup_width)).cyan().to_string())?;
+
+    // カーソル位置を計算して移動
+    let prefix_width = measure_text_width("│ ") + measure_text_width(input_prefix);
+    let cursor_x = popup_x + prefix_width + measure_text_width(&app.input_modal_value);
+    term.move_cursor_to(cursor_x, height.saturating_sub(offset - 2))?;
+    term.show_cursor()?;
 
     Ok(())
 }

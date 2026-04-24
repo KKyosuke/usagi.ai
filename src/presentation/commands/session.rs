@@ -136,14 +136,20 @@ pub enum SessionCommands {
 
 fn start_session(branch: Option<String>, base: Option<String>, remote: bool, project_path: &Path) -> Result<String> {
     let base_branch = if remote {
-        git::fetch(project_path, "origin")?;
-        let remote_branches = git::list_remote_branches(project_path)?;
-        if remote_branches.is_empty() {
-            return Err(anyhow!("No remote branches found."));
+        // TUI環境下では executor.rs が事前にリモートブランチを選択し --base に渡してくる。
+        // CLIから直接叩かれた場合のみ inquiry を使用する。
+        if let Some(b) = base {
+            b
+        } else {
+            git::fetch(project_path, "origin")?;
+            let remote_branches = git::list_remote_branches(project_path)?;
+            if remote_branches.is_empty() {
+                return Err(anyhow!("No remote branches found."));
+            }
+            inquire::Select::new("Select base branch from remote:", remote_branches)
+                .prompt()
+                .map_err(|e| anyhow!("Failed to select remote branch: {}", e))?
         }
-        inquire::Select::new("Select base branch from remote:", remote_branches)
-            .prompt()
-            .map_err(|e| anyhow!("Failed to select remote branch: {}", e))?
     } else {
         match base {
             Some(b) => b,
@@ -159,6 +165,10 @@ fn start_session(branch: Option<String>, base: Option<String>, remote: bool, pro
             } else {
                 "".to_string()
             };
+
+            // TUI環境下での executor.rs による事前入力を想定
+            // executor.rs はブランチ名が指定されていない場合に事前に入力を求める。
+            // それでも指定がない場合のみ inquire を使用する。
             inquire::Text::new("Enter session branch name:")
                 .with_default(&default_name)
                 .prompt()

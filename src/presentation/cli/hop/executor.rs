@@ -62,6 +62,69 @@ pub fn execute_command(app: &mut HopApp) -> Result<bool> {
         return Ok(true);
     }
 
+    let is_session_start_remote = parts.len() >= 2 && parts[0] == "session" && parts[1] == "start" && parts.iter().any(|p| p == "--remote" || p == "-r");
+    if is_session_start_remote {
+        let (_term_height, term_width) = app.term.size();
+        let left_width = 30;
+        let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+        let prompt_text = format!("{} {} {}", style(&selected_worktree).cyan(), ">", cmd_to_execute);
+        app.history.push_output(&prompt_text, right_width);
+
+        app.history.push_output(&format!("{}", style("Fetching remote branches...").dim()), right_width);
+        ui::render(app)?;
+        let _ = app.term.flush();
+
+        let _ = crate::infrastructure::git::fetch(&app.project_path, "origin");
+        let remote_branches = crate::infrastructure::git::list_remote_branches(&app.project_path)?;
+        app.history.pop_output(); // Remove "Fetching..."
+
+        if remote_branches.is_empty() {
+            app.history.push_output(&format!("{}", style("No remote branches found.").red()), right_width);
+        } else {
+            app.is_modal_mode = true;
+            app.modal_title = "Select base branch from remote".to_string();
+            app.modal_items = remote_branches;
+            app.modal_selected_index = 0;
+            
+            let parts_clone = parts.clone();
+            app.modal_on_select = Some(Box::new(move |app, selected| {
+                let mut new_parts = parts_clone;
+                // --remote / -r を削除
+                new_parts.retain(|p| p != "--remote" && p != "-r");
+
+                // ブランチ名が既に提供されているかチェック
+                // new_parts は ["session", "start", "BRANCH"] の形式を想定
+                let has_branch = new_parts.len() >= 3;
+
+                // --base <selected> を追加
+                new_parts.push("--base".to_string());
+                new_parts.push(selected.clone());
+                
+                if has_branch {
+                    app.current_input = new_parts.join(" ");
+                    execute_command(app)?;
+                } else {
+                    // Ask for branch name
+                    app.is_input_modal_mode = true;
+                    app.input_modal_title = "Enter session branch name:".to_string();
+                    app.input_modal_value = selected.split('/').last().unwrap_or(&selected).to_string();
+                    app.input_modal_on_submit = Some(Box::new(move |app, branch_name| {
+                        new_parts.push(branch_name);
+                        app.current_input = new_parts.join(" ");
+                        execute_command(app)?;
+                        Ok(())
+                    }));
+                }
+                Ok(())
+            }));
+        }
+
+        app.current_input.clear();
+        app.cursor_pos = 0;
+        app.history.reset_input_index();
+        return Ok(true);
+    }
+
     if is_ai_chat && !app.state.ai_model.is_none() {
         app.is_ai_chat_mode = true;
         app.current_input.clear();
