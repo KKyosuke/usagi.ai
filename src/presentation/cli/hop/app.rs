@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow, Context};
 use std::path::PathBuf;
-use console::Term;
+use std::sync::Arc;
+use console::{Term, style};
 use crate::domain::project::ProjectState;
 use crate::infrastructure::project_state::get_project_state;
 use crate::presentation::cli::hop::history_manager::HistoryManager;
@@ -30,7 +31,7 @@ pub struct HopApp {
     pub current_input: String,
     pub cursor_pos: usize,
     pub is_command_mode: bool,
-    pub commands: Vec<Box<dyn Command>>,
+    pub commands: Vec<Arc<dyn Command>>,
     pub is_terminal_view: bool,
     pub is_ai_chat_mode: bool,
     pub tab_completion_base: Option<String>,
@@ -144,5 +145,144 @@ impl HopApp {
             self.history.save_input(cmd)?;
         }
         Ok(())
+    }
+
+    pub fn handle_command_result(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize) {
+        let (term_height, term_width) = self.term.size();
+        let left_width = 30;
+        let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
+
+        let parts: Vec<&str> = cmd_to_execute.split_whitespace().collect();
+        let cmd_name = parts.first().unwrap_or(&"");
+        let is_session_close = *cmd_name == "session" && parts.get(1) == Some(&"close");
+
+        if *cmd_name == "close" || is_session_close {
+            if result.is_ok() {
+                self.is_command_mode = false;
+                let _ = self.refresh_state();
+                
+                if let Some(idx) = self.worktrees.iter().position(|wt| wt == selected_worktree) {
+                    self.selected_index = idx;
+                } else if let Some(current_wt) = &self.state.current_worktree {
+                    if let Some(idx) = self.worktrees.iter().position(|wt| wt == current_wt) {
+                        self.selected_index = idx;
+                    }
+                } else {
+                    self.selected_index = 0;
+                }
+            }
+        } else {
+            match result {
+                Ok(output) => {
+                    self.history.push_output(&output, right_width);
+                }
+                Err(e) => {
+                    self.history.push_output(&e.to_string(), right_width);
+                    // Restore input on error so they don't have to re-type
+                    self.current_input = backup_input.to_string();
+                    self.cursor_pos = backup_cursor;
+                }
+            }
+
+            // 状態を更新し（save_history内でrefresh_stateを呼ぶ）、履歴を保存
+            let _ = self.save_history(cmd_to_execute);
+            
+            let mut updated = false;
+            if *cmd_name == "space" {
+                if let Some(current_wt) = &self.state.current_worktree {
+                    if let Some(idx) = self.worktrees.iter().position(|wt| wt == current_wt) {
+                        self.selected_index = idx;
+                        updated = true;
+                    }
+                }
+            }
+
+            if !updated {
+                if let Some(idx) = self.worktrees.iter().position(|wt| wt == selected_worktree) {
+                    self.selected_index = idx;
+                } else if let Some(current_wt) = &self.state.current_worktree {
+                    if let Some(idx) = self.worktrees.iter().position(|wt| wt == current_wt) {
+                        self.selected_index = idx;
+                    }
+                } else {
+                    self.selected_index = 0;
+                }
+            }
+        }
+        
+        self.history.limit_output((term_height as usize).saturating_sub(7).max(1));
+    }
+
+    pub fn prepare_command_execution(&mut self, cmd_name: &str, cmd_to_execute: &str) -> bool {
+        self.is_terminal_view = cmd_name == "terminal";
+
+        let (_term_height, term_width) = self.term.size();
+        let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
+
+        let is_session_close = cmd_name == "session" && cmd_to_execute.contains("close");
+        let selected_worktree = self.worktrees[self.selected_index].clone();
+
+        if cmd_name != "close" && !is_session_close && !cmd_name.is_empty() {
+            let prompt_sign = if self.is_ai_chat_mode { "(ai) >" } else if self.is_terminal_view { "$" } else { ">" };
+            let prompt = format!("{} {} {}", style(&selected_worktree).cyan(), prompt_sign, cmd_to_execute);
+            self.history.push_output(&prompt, right_width);
+        }
+
+        let mut show_thinking = false;
+        if self.is_ai_chat_mode && cmd_name == "ai" && cmd_to_execute.contains("chat-turn") {
+            self.history.push_output(&format!("{}", style("🐰 Thinking...").dim().italic()), right_width);
+            show_thinking = true;
+        }
+
+        self.current_input.clear();
+        self.cursor_pos = 0;
+
+        let _ = crate::presentation::cli::hop::ui::render(self);
+        let _ = self.term.flush();
+        
+        show_thinking
+    }
+
+    pub fn finalize_command_execution(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize, show_thinking: bool) {
+        // Re-enter alternate screen and hide cursor to ensure TUI state
+        let _ = self.term.write_str("\x1b[?1049h");
+        let _ = self.term.hide_cursor();
+        let _ = self.term.flush();
+
+        self.handle_command_result(result, selected_worktree, cmd_to_execute, backup_input, backup_cursor);
+
+        if show_thinking {
+            self.history.pop_output();
+        }
+    }
+
+    pub fn run_command_with_parts(&mut self, parts: Vec<String>, cmd_to_execute: &str) -> (Result<String>, bool) {
+        let cmd_name = if parts.is_empty() { "".to_string() } else { parts[0].clone() };
+        let show_thinking = self.prepare_command_execution(&cmd_name, cmd_to_execute);
+        
+        let selected_worktree = self.worktrees[self.selected_index].clone();
+
+        let command = self.commands.iter()
+            .find(|c| c.name() == cmd_name)
+            .map(|c| Arc::clone(c));
+
+        let mut parts = parts;
+        let result: Result<String> = if let Some(cmd) = command {
+            if cmd_name == "space" {
+                self.is_command_mode = false;
+                if parts.len() == 1 {
+                    parts.push(self.worktrees[self.selected_index].clone());
+                }
+            }
+            cmd.run(parts, &self.project_path, &selected_worktree, &self.term)
+        } else {
+            if cmd_name.is_empty() {
+                Ok("".to_string())
+            } else {
+                Ok(format!("no such command in usagi: {}", cmd_name))
+            }
+        };
+        
+        (result, show_thinking)
     }
 }
