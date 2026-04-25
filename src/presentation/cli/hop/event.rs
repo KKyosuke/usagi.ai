@@ -142,10 +142,22 @@ pub async fn handle_key(app: &mut HopApp) -> Result<bool> {
             }
         }
         Key::Char(c) if app.is_command_mode => {
+            // Handle bracketed paste start/end sequences if they appear as Char
+            // This is a simple heuristic to skip \x1b[200~ and \x1b[201~ if they are partially parsed
             let byte_offset: usize = app.current_input.chars().take(app.cursor_pos).map(|c| c.len_utf8()).sum();
             app.current_input.insert(byte_offset, c);
             app.cursor_pos += 1;
             app.history.reset_input_index();
+
+            // Check if we just completed a bracketed paste sequence and clean it up
+            if app.current_input.contains("[200~") {
+                app.current_input = app.current_input.replace("[200~", "");
+                app.cursor_pos = app.cursor_pos.saturating_sub(5);
+            }
+            if app.current_input.contains("[201~") {
+                app.current_input = app.current_input.replace("[201~", "");
+                app.cursor_pos = app.cursor_pos.saturating_sub(5);
+            }
         }
         Key::Tab if app.is_command_mode => {
             completion::handle_tab(app);
@@ -165,7 +177,22 @@ pub async fn handle_key(app: &mut HopApp) -> Result<bool> {
             app.history.reset_input_index();
         }
         Key::Char('q') | Key::Escape if !app.is_command_mode => {
-            return Ok(false);
+            // Finder drag-and-drop on macOS can be wrapped in bracketed paste sequences: \x1b[200~ ... \x1b[201~
+            // console::Term::read_key() might return Key::Escape for \x1b.
+            // If we exit immediately on Key::Escape in SideMenu mode, drag-and-drop will fail.
+            // However, we don't have a good way to check for subsequent bytes without blocking.
+            // As a compromise, we exit ONLY on 'q'. Escape will be ignored in SideMenu mode
+            // to prevent accidental exits during drag-and-drop or fast sequences.
+            if matches!(key, Key::Char('q')) {
+                return Ok(false);
+            }
+        }
+        Key::Char(c) if !app.is_command_mode => {
+            app.is_command_mode = true;
+            app.current_input.clear();
+            app.current_input.push(c);
+            app.cursor_pos = 1;
+            app.history.reset_input_index();
         }
         _ => {}
     }
