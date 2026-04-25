@@ -33,7 +33,7 @@ pub struct HopApp {
     pub is_command_mode: bool,
     pub commands: Vec<Arc<dyn Command>>,
     pub is_terminal_view: bool,
-    pub is_ai_chat_mode: bool,
+    pub active_interaction: Option<Arc<dyn Command>>,
     pub tab_completion_base: Option<String>,
     pub suggestion_index: Option<usize>,
     pub select_modal: Option<SelectModal>,
@@ -97,7 +97,7 @@ impl HopApp {
             is_command_mode: false,
             commands,
             is_terminal_view: false,
-            is_ai_chat_mode: false,
+            active_interaction: None,
             tab_completion_base: None,
             suggestion_index: None,
             select_modal: None,
@@ -106,8 +106,8 @@ impl HopApp {
     }
 
     pub fn mode(&self) -> AppMode {
-        if self.is_ai_chat_mode {
-            AppMode::AiChat
+        if self.active_interaction.is_some() {
+            AppMode::Interaction
         } else if self.is_command_mode {
             AppMode::Command
         } else {
@@ -139,9 +139,13 @@ impl HopApp {
         Ok(())
     }
 
+    pub fn is_ai_chat_mode(&self) -> bool {
+        self.active_interaction.as_ref().map(|c| c.name() == "ai").unwrap_or(false)
+    }
+
     pub fn save_history(&mut self, cmd: &str) -> Result<()> {
         self.refresh_state()?;
-        if !self.is_ai_chat_mode {
+        if !self.is_ai_chat_mode() {
             self.history.save_input(cmd)?;
         }
         Ok(())
@@ -223,13 +227,13 @@ impl HopApp {
         let selected_worktree = self.worktrees[self.selected_index].clone();
 
         if cmd_name != "close" && !is_session_close && !cmd_name.is_empty() {
-            let prompt_sign = if self.is_ai_chat_mode { "(ai) >" } else if self.is_terminal_view { "$" } else { ">" };
+            let prompt_sign = if self.is_ai_chat_mode() { "(ai) >" } else if self.is_terminal_view { "$" } else { ">" };
             let prompt = format!("{} {} {}", style(&selected_worktree).cyan(), prompt_sign, cmd_to_execute);
             self.history.push_output(&prompt, right_width);
         }
 
         let mut show_thinking = false;
-        if self.is_ai_chat_mode && cmd_name == "ai" && cmd_to_execute.contains("chat-turn") {
+        if self.is_ai_chat_mode() && cmd_name == "ai" && cmd_to_execute.contains("chat-turn") {
             self.history.push_output(&format!("{}", style("🐰 Thinking...").dim().italic()), right_width);
             show_thinking = true;
         }
@@ -266,14 +270,8 @@ impl HopApp {
             .find(|c| c.name() == cmd_name)
             .map(|c| Arc::clone(c));
 
-        let mut parts = parts;
+        let parts = parts;
         let result: Result<String> = if let Some(cmd) = command {
-            if cmd_name == "space" {
-                self.is_command_mode = false;
-                if parts.len() == 1 {
-                    parts.push(self.worktrees[self.selected_index].clone());
-                }
-            }
             cmd.run(parts, &self.project_path, &selected_worktree, &self.term)
         } else {
             if cmd_name.is_empty() {

@@ -31,8 +31,8 @@ pub enum CommandAction {
     DisplayMessage(String),
     SetSelectModal(SelectModal),
     SetInputModal(InputModal),
-    EnterInteraction,
-    ExitInteraction,
+    EnterInteraction(String),
+    ExitInteraction(String),
     RunCommand {
         parts: Vec<String>,
         cmd_to_execute: String,

@@ -67,7 +67,7 @@ pub fn render(app: &HopApp) -> Result<()> {
         
         // 右側の表示内容 (履歴)
         let right_content = if i == 0 {
-            if app.is_ai_chat_mode {
+            if app.is_ai_chat_mode() {
                 format!("{}", style("AI CHAT").bold().cyan())
             } else {
                 let label = if app.is_terminal_view {
@@ -97,7 +97,7 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.move_cursor_to(0, height as usize - 4)?;
     term.write_line(&format!("{:-<width$}", "", width = width as usize))?;
     let command_padding = left_width.saturating_sub(measure_text_width("COMMAND"));
-    let prompt_prefix = if app.is_ai_chat_mode { "(ai) >" } else { "|" };
+    let prompt_prefix = if app.is_ai_chat_mode() { "(ai) >" } else { "|" };
     let command_prompt = format!("COMMAND{:padding$} {} {}", "", prompt_prefix, app.current_input, padding = command_padding);
     let command_display = format!("{:width$}", command_prompt, width = width as usize);
     term.write_line(&command_display)?;
@@ -114,7 +114,7 @@ pub fn render(app: &HopApp) -> Result<()> {
     term.write_str(&help_display)?;
 
     // コマンドモードのポップアップ表示
-    if app.is_command_mode && !app.is_ai_chat_mode && app.select_modal.is_none() {
+    if app.is_command_mode && !app.is_ai_chat_mode() && app.select_modal.is_none() {
         render_command_popup(app, height as usize, width as usize, left_width)?;
     }
 
@@ -128,7 +128,7 @@ pub fn render(app: &HopApp) -> Result<()> {
 
     if app.is_command_mode && app.input_modal.is_none() {
         let input_prefix: String = app.current_input.chars().take(app.cursor_pos).collect();
-        let prompt_width = if app.is_ai_chat_mode { "(ai) >".len() } else { "|".len() };
+        let prompt_width = if app.is_ai_chat_mode() { "(ai) >".len() } else { "|".len() };
         let cursor_x = left_width + 2 + prompt_width + measure_text_width(&input_prefix);
         term.move_cursor_to(cursor_x, height as usize - 3)?;
         term.show_cursor()?;

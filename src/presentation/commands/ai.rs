@@ -145,7 +145,7 @@ impl Command for AiCommand {
         }
 
         if is_ai_chat && context.state.ai_model.is_some() {
-            return Ok(CommandAction::EnterInteraction);
+            return Ok(CommandAction::EnterInteraction(format!("{}", style("🐰 Entered AI Chat Mode. Type 'exit' to end.").cyan().bold())));
         }
 
         Ok(CommandAction::RunCommand {
@@ -160,7 +160,7 @@ impl Command for AiCommand {
         let original_input = cmd_to_execute.trim();
         
         if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
-            return Ok(CommandAction::ExitInteraction);
+            return Ok(CommandAction::ExitInteraction(format!("{}", style("AI chat session ended.").dim())));
         }
 
         let parts = vec!["ai".to_string(), "chat-turn".to_string(), original_input.to_string()];
