@@ -1,5 +1,7 @@
 use anyhow::Result;
 use std::path::Path;
+use async_trait::async_trait;
+use console::Term;
 use crate::presentation::commands::Command;
 
 pub struct CloseCommand;
@@ -8,6 +10,7 @@ const NAME: &str = "close";
 const DESCRIPTION: &str = "Close the session";
 const HELP: &str = "Closes the session and returns to the directory selection screen.";
 
+#[async_trait]
 impl Command for CloseCommand {
     fn name(&self) -> &str {
         NAME
@@ -25,7 +28,7 @@ impl Command for CloseCommand {
         Some("Usage: close".to_string())
     }
 
-    fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &Term) -> Result<String> {
         Ok("close".to_string())
     }
 }

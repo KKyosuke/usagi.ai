@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use console::style;
+use console::{style, Term};
 use std::path::Path;
 use std::sync::Arc;
+use async_trait::async_trait;
+use futures::stream::BoxStream;
 use crate::presentation::cli::hop::app::SelectModal;
 
-use crate::presentation::commands::{Command, CommandContext, CommandAction};
+use crate::presentation::commands::{Command, CommandContext, CommandAction, CommandEvent};
 
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
@@ -48,6 +50,7 @@ struct AiArgs {
     set_model: bool,
 }
 
+#[async_trait]
 impl Command for AiCommand {
     fn name(&self) -> &str {
         "ai"
@@ -87,11 +90,12 @@ impl Command for AiCommand {
         parts.get(0).map_or(false, |name| name == self.name())
     }
 
-    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+    async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
         let parts = context.parts;
         let is_ai_set_model = parts.len() == 2 && parts[0] == "ai" && parts[1] == "--set-model";
         let is_ai_chat = parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat";
         let cmd_to_execute = parts.join(" ");
+        let _project_path = context.project_path.clone();
 
         if is_ai_set_model || (is_ai_chat && context.state.ai_model.is_none()) {
             if let Some(user_dirs) = directories::UserDirs::new() {
@@ -117,7 +121,7 @@ impl Command for AiCommand {
                         title: " AI model is not set. Please select a default model. ".to_string(),
                         items: available_models,
                         selected_index: 0,
-                        on_select: Box::new(move |app, selected| {
+                        on_select: Box::new(move |app, selected| Box::pin(async move {
                             if let Some(user_dirs) = directories::UserDirs::new() {
                                 let models_dir = user_dirs.home_dir().join(".usagi").join("models");
                                 let full_path = models_dir.join(&selected).to_string_lossy().to_string();
@@ -137,7 +141,7 @@ impl Command for AiCommand {
                                 app.history.push_output(&format!("{}", style("🐰 Entered AI Chat Mode. Type 'exit' to end.").cyan().bold()), right_width);
                             }
                             Ok(())
-                        }),
+                        })),
                     }));
                 }
             }
@@ -155,24 +159,29 @@ impl Command for AiCommand {
         })
     }
 
-    fn interact(&self, context: CommandContext) -> Result<CommandAction> {
+    async fn interact(&self, context: CommandContext) -> Result<BoxStream<'static, Result<CommandEvent>>> {
         let cmd_to_execute = context.parts.join(" ");
         let original_input = cmd_to_execute.trim();
         
         if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
-            return Ok(CommandAction::ExitInteraction(format!("{}", style("AI chat session ended.").dim())));
+            let action = CommandAction::ExitInteraction(format!("{}", style("AI chat session ended.").dim()));
+            return Ok(Box::pin(futures::stream::once(async move { Ok(CommandEvent::Action(action)) })));
         }
 
         let parts = vec!["ai".to_string(), "chat-turn".to_string(), original_input.to_string()];
-        
-        Ok(CommandAction::RunCommand {
+        let action = CommandAction::RunCommand {
             parts,
             cmd_to_execute,
             close_after: false,
-        })
+        };
+        
+        // RunCommandを通じて実行。loading表示はapp.rs側で行われるためここでは流さない
+        Ok(Box::pin(futures::stream::once(async move {
+            Ok(CommandEvent::Action(action))
+        })))
     }
 
-    fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &console::Term) -> Result<String> {
+    async fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, term: &Term) -> Result<String> {
         let parsed = match AiArgs::try_parse_from(&args) {
             Ok(opts) => opts,
             Err(e) => return Ok(e.to_string()),
@@ -201,9 +210,9 @@ impl Command for AiCommand {
             
             if let Ok(selected) = inquire::Select::new("Which model would you like to set as default for this project?", available_models).prompt() {
                 let full_path = models_dir.join(&selected).to_string_lossy().to_string();
-                if let Ok(mut state) = crate::infrastructure::project_state::get_project_state(_project_path) {
+                if let Ok(mut state) = crate::infrastructure::project_state::get_project_state(project_path) {
                     state.ai_model = Some(full_path.clone());
-                    if let Err(e) = crate::infrastructure::project_state::save_project_state(_project_path, &state) {
+                    if let Err(e) = crate::infrastructure::project_state::save_project_state(project_path, &state) {
                         return Ok(format!("{}", style(format!("Failed to save state: {}", e)).red()));
                     }
                     return Ok(format!("{}", style(format!("Default AI model set to: {}", selected)).green()));
@@ -237,7 +246,7 @@ impl Command for AiCommand {
             let base64_image = general_purpose::STANDARD.encode(&buffer);
 
             // Default to llava if model hasn't been set to a plain text name
-            let state_model = crate::infrastructure::project_state::get_project_state(_project_path).ok().and_then(|s| s.ai_model);
+            let state_model = crate::infrastructure::project_state::get_project_state(project_path).ok().and_then(|s| s.ai_model);
             let mut ollama_model = parsed.model.or(state_model).unwrap_or_else(|| "llava".to_string());
             if ollama_model.ends_with(".gguf") {
                 ollama_model = "llava".to_string(); // Default to standard multimodal model
@@ -245,7 +254,7 @@ impl Command for AiCommand {
 
             term.write_line(&format!("{}", style(format!("Sending image to Ollama ({})", ollama_model)).dim()))?;
             
-            let client = reqwest::blocking::Client::new();
+            let client = reqwest::Client::new();
             let req_body = serde_json::json!({
                 "model": ollama_model,
                 "prompt": prompt_input,
@@ -255,10 +264,11 @@ impl Command for AiCommand {
 
             match client.post("http://localhost:11434/api/generate")
                 .json(&req_body)
-                .send() {
+                .send()
+                .await {
                     Ok(resp) => {
                         if resp.status().is_success() {
-                            let json: serde_json::Value = resp.json()?;
+                            let json: serde_json::Value = resp.json().await?;
                             if let Some(resp_text) = json.get("response").and_then(|v| v.as_str()) {
                                 return Ok(resp_text.trim().to_string());
                             } else {
@@ -286,7 +296,7 @@ impl Command for AiCommand {
             format!("<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n", prompt_input)
         };
         
-        let state_model = crate::infrastructure::project_state::get_project_state(_project_path).ok().and_then(|s| s.ai_model);
+        let state_model = crate::infrastructure::project_state::get_project_state(project_path).ok().and_then(|s| s.ai_model);
         
         let mut model_path = match parsed.model.or(state_model).or_else(|| std::env::var("USAGI_AI_MODEL").ok()) {
             Some(p) => p,

@@ -3602,9 +3602,7 @@ dependencies = [
  "base64",
  "bytes",
  "encoding_rs",
- "futures-channel",
  "futures-core",
- "futures-util",
  "h2 0.4.13",
  "http 1.4.0",
  "http-body 1.0.1",
@@ -4737,6 +4735,7 @@ name = "usagi"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "base64",
  "chrono",
  "clap",
@@ -4744,6 +4743,7 @@ dependencies = [
  "crossterm 0.27.0",
  "ctrlc",
  "directories",
+ "futures",
  "git2",
  "inquire",
  "llama-cpp-2",
@@ -4753,6 +4753,7 @@ dependencies = [
  "reqwest 0.13.2",
  "serde",
  "serde_json",
+ "tokio",
  "vt100",
 ]
 

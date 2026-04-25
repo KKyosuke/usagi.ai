@@ -4,6 +4,8 @@ use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use async_trait::async_trait;
+use console::Term as ConsoleTerm;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use crate::presentation::commands::Command;
 use crate::infrastructure::project_state::get_project_state;
@@ -19,6 +21,7 @@ use crossterm::{
 
 pub struct TerminalCommand;
 
+#[async_trait]
 impl Command for TerminalCommand {
     fn name(&self) -> &str {
         "terminal"
@@ -34,7 +37,7 @@ Usage: terminal [command]
 Example: terminal /bin/bash"
     }
 
-    fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, _term: &ConsoleTerm) -> Result<String> {
         let state = get_project_state(project_path)?;
         
         let worktree = state.worktrees.iter().find(|w| w.branch == current_worktree)

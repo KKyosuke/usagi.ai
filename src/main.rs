@@ -54,7 +54,8 @@ pub enum AiCommands {
     Install,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
@@ -63,13 +64,13 @@ fn main() -> Result<()> {
             presentation::cli::init::run(repository_url, directory, branch.clone())?;
         }
         Some(Commands::Hop) => {
-            presentation::tui::app_runner::run()?;
+            presentation::tui::app_runner::run().await?;
         }
         Some(Commands::Doctor) => {
             let doctor = presentation::commands::doctor::DoctorCommand;
             let current_dir = std::env::current_dir()?;
             let term = console::Term::stdout();
-            println!("{}", doctor.run(vec![], &current_dir, "", &term)?);
+            println!("{}", doctor.run(vec![], &current_dir, "", &term).await?);
         }
         Some(Commands::Aws { command }) => {
             match command {

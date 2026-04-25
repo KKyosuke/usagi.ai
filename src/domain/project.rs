@@ -64,7 +64,7 @@ impl Worktree {
 }
 
 /// Core entity representing the state of an initialized usagi project.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectState {
     pub initialized: bool,
     pub worktrees: Vec<Worktree>,

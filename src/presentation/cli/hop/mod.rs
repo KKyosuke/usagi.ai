@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use crate::presentation::tui::screen::AlternateScreenGuard;
 use self::app::HopApp;
 
-pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
+pub async fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()> {
     let mut app = HopApp::new(project_path, initial_worktree)?;
     
     // TUI 画面の表示
@@ -22,7 +22,7 @@ pub fn run(project_path: PathBuf, initial_worktree: Option<String>) -> Result<()
     loop {
         ui::render(&app)?;
         
-        if !event::handle_key(&mut app)? {
+        if !event::handle_key(&mut app).await? {
             break;
         }
     }

@@ -1,7 +1,9 @@
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use console::Term;
+use async_trait::async_trait;
+use futures::stream::BoxStream;
 use crate::presentation::cli::hop::app::{SelectModal, InputModal};
 use crate::domain::project::ProjectState;
 
@@ -14,14 +16,19 @@ pub mod space;
 pub mod terminal;
 pub mod ai;
 
-pub struct CommandContext<'a> {
+pub struct CommandContext {
     pub parts: Vec<String>,
-    pub state: &'a ProjectState,
-    pub worktrees: &'a [String],
+    pub state: ProjectState,
+    pub worktrees: Vec<String>,
     pub selected_index: usize,
     pub is_interaction_mode: bool,
-    pub input_history: &'a [String],
-    pub project_path: &'a Path,
+    pub input_history: Vec<String>,
+    pub project_path: PathBuf,
+}
+
+pub enum CommandEvent {
+    DisplayMessage(String),
+    Action(CommandAction),
 }
 
 pub enum CommandAction {
@@ -42,19 +49,20 @@ pub enum CommandAction {
 }
 
 /// Interface that every TUI command must implement.
+#[async_trait]
 pub trait Command: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn help(&self) -> &str;
-    fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, term: &Term) -> Result<String>;
+    async fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, term: &Term) -> Result<String>;
     fn is_match(&self, context: &CommandContext) -> bool {
         context.parts.get(0).map_or(false, |name| name == self.name())
     }
-    fn execute(&self, _context: CommandContext) -> Result<CommandAction> {
+    async fn execute(&self, _context: CommandContext) -> Result<CommandAction> {
         Ok(CommandAction::None)
     }
-    fn interact(&self, _context: CommandContext) -> Result<CommandAction> {
-        Ok(CommandAction::None)
+    async fn interact(&self, _context: CommandContext) -> Result<BoxStream<'static, Result<CommandEvent>>> {
+        Ok(Box::pin(futures::stream::empty()))
     }
     fn subcommands(&self) -> Vec<(String, String)> {
         vec![]

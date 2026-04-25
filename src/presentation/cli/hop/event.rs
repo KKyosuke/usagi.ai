@@ -4,7 +4,7 @@ use crate::presentation::cli::hop::app::HopApp;
 use crate::presentation::cli::hop::executor;
 use crate::presentation::cli::hop::completion;
 
-pub fn handle_key(app: &mut HopApp) -> Result<bool> {
+pub async fn handle_key(app: &mut HopApp) -> Result<bool> {
     let key = match app.term.read_key() {
         Ok(k) => k,
         Err(e) => {
@@ -31,7 +31,7 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
             Key::Enter => {
                 let value = modal.value.clone();
                 if let Some(modal) = app.input_modal.take() {
-                    (modal.on_submit)(app, value)?;
+                    (modal.on_submit)(app, value).await?;
                 }
                 return Ok(true);
             }
@@ -73,7 +73,7 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
                 if !modal.items.is_empty() {
                     let selected = modal.items[modal.selected_index].clone();
                     if let Some(modal) = app.select_modal.take() {
-                        (modal.on_select)(app, selected)?;
+                        (modal.on_select)(app, selected).await?;
                     }
                 } else {
                     app.select_modal = None;
@@ -132,7 +132,7 @@ pub fn handle_key(app: &mut HopApp) -> Result<bool> {
         }
         Key::Enter => {
             if app.is_command_mode {
-                if !executor::execute_command(app)? {
+                if !executor::execute_command(app).await? {
                     return Ok(false);
                 }
             } else {

@@ -1,6 +1,8 @@
 
 use anyhow::Result;
 use std::path::Path;
+use async_trait::async_trait;
+use console::Term;
 use crate::infrastructure::project_history::get_project_history;
 use crate::presentation::commands::{Command, CommandContext, CommandAction};
 
@@ -12,6 +14,7 @@ const HELP: &str = "Shows the history of commands executed so far.
 You can also re-run a command by specifying its history number.
 Example: Enter '1' to execute the first command in history.";
 
+#[async_trait]
 impl Command for HistoryCommand {
     fn name(&self) -> &str {
         NAME
@@ -35,7 +38,7 @@ impl Command for HistoryCommand {
         parts.get(0).map_or(false, |name| name == self.name())
     }
 
-    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+    async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
         let mut parts = context.parts;
         let mut cmd_to_execute = parts.join(" ");
 
@@ -59,7 +62,7 @@ impl Command for HistoryCommand {
         Some("Usage: history".to_string())
     }
 
-    fn run(&self, _args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, _args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &Term) -> Result<String> {
         let project_history = get_project_history(project_path)?;
         let mut output = String::new();
 

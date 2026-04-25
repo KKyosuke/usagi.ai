@@ -1,5 +1,7 @@
 use anyhow::Result;
 use std::path::Path;
+use async_trait::async_trait;
+use console::Term;
 use crate::presentation::commands::{Command, get_commands};
 
 pub struct ManCommand;
@@ -9,6 +11,7 @@ const DESCRIPTION: &str = "Show manual";
 const HELP: &str = "Shows a list of available commands or help for a specific command.
 Usage: man [command]";
 
+#[async_trait]
 impl Command for ManCommand {
     fn name(&self) -> &str {
         NAME
@@ -33,7 +36,7 @@ impl Command for ManCommand {
         Some("Usage: man [COMMAND]".to_string())
     }
 
-    fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, _term: &Term) -> Result<String> {
         let commands = get_commands();
         if args.len() > 1 {
             let cmd_name = &args[1];

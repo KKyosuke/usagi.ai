@@ -1,6 +1,8 @@
 use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::path::Path;
+use async_trait::async_trait;
+use console::Term;
 use crate::infrastructure::project_state::{get_project_state, save_project_state};
 use crate::presentation::commands::{Command, CommandContext, CommandAction};
 
@@ -13,6 +15,7 @@ Usage: space <worktree_name>
 Switches the current working directory to the specified worktree.
 Specifying 'main' returns to the main worktree.";
 
+#[async_trait]
 impl Command for SpaceCommand {
     fn name(&self) -> &str {
         NAME
@@ -30,7 +33,7 @@ impl Command for SpaceCommand {
         Some("Usage: space <WORKTREE>".to_string())
     }
 
-    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+    async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
         let mut parts = context.parts;
         let cmd_to_execute = parts.join(" ");
 
@@ -45,7 +48,7 @@ impl Command for SpaceCommand {
         })
     }
 
-    fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &Term) -> Result<String> {
         let cli = match SpaceCli::try_parse_from(args) {
             Ok(cli) => cli,
             Err(e) => {

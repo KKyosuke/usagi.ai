@@ -1,6 +1,8 @@
 use anyhow::{Result, anyhow};
 use std::path::Path;
 use clap::{Parser, Subcommand, CommandFactory};
+use async_trait::async_trait;
+use console::Term;
 use crate::infrastructure::project_state::{get_project_state, save_project_state};
 use crate::infrastructure::git;
 use crate::domain::project::Worktree;
@@ -20,6 +22,7 @@ Usage: session start [branch_name] [--base <base_branch>] [--remote]
 Closes and removes an existing session (removes worktree and deletes the local branch).
 If branch_name is omitted, a list of available sessions will be displayed to choose from.";
 
+#[async_trait]
 impl Command for SessionCommand {
     fn name(&self) -> &str {
         NAME
@@ -45,17 +48,18 @@ impl Command for SessionCommand {
         is_session_start_remote || is_session_start_interactive || is_session_close_interactive || parts.get(0).map_or(false, |name| name == self.name())
     }
 
-    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+    async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
         let parts = context.parts;
         let has_remote = parts.iter().any(|p| p == "--remote" || p == "-r");
         let has_base = parts.iter().any(|p| p == "--base" || p == "-b");
         let cmd_to_execute = parts.join(" ");
         let selected_worktree = context.worktrees[context.selected_index].clone();
+        let project_path = context.project_path.clone();
 
         let is_session_start_remote = parts.len() >= 2 && parts[0] == "session" && parts[1] == "start" && has_remote && !has_base;
         if is_session_start_remote {
-            let _ = crate::infrastructure::git::fetch(context.project_path, "origin");
-            let remote_branches = crate::infrastructure::git::list_remote_branches(context.project_path)?;
+            let _ = crate::infrastructure::git::fetch(&project_path, "origin");
+            let remote_branches = crate::infrastructure::git::list_remote_branches(&project_path)?;
 
             if remote_branches.is_empty() {
                 return Ok(CommandAction::DisplayMessage(format!("{}", style("No remote branches found.").red())));
@@ -66,7 +70,7 @@ impl Command for SessionCommand {
                     title: "Select base branch from remote".to_string(),
                     items: remote_branches,
                     selected_index: 0,
-                    on_select: Box::new(move |app, selected| {
+                    on_select: Box::new(move |app, selected| Box::pin(async move {
                         let mut new_parts = parts_clone;
                         let has_branch = new_parts.len() >= 3;
 
@@ -75,23 +79,23 @@ impl Command for SessionCommand {
                         
                         if has_branch {
                             let new_input = new_parts.join(" ");
-                            let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input);
+                            let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
                             app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                         } else {
                             app.input_modal = Some(InputModal {
                                 title: "Enter session branch name:".to_string(),
                                 value: selected.split('/').last().unwrap_or(&selected).to_string(),
-                                on_submit: Box::new(move |app, branch_name| {
+                                on_submit: Box::new(move |app, branch_name| Box::pin(async move {
                                     new_parts.push(branch_name);
                                     let new_input = new_parts.join(" ");
-                                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input);
+                                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
                                     app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                                     Ok(())
-                                }),
+                                })),
                             });
                         }
                         Ok(())
-                    }),
+                    })),
                 }));
             }
         }
@@ -102,13 +106,13 @@ impl Command for SessionCommand {
             return Ok(CommandAction::SetInputModal(InputModal {
                 title: "Enter session branch name:".to_string(),
                 value: "".to_string(),
-                on_submit: Box::new(move |app, branch_name| {
+                on_submit: Box::new(move |app, branch_name| Box::pin(async move {
                     let new_input = format!("session start {}", branch_name);
                     let new_parts = vec!["session".to_string(), "start".to_string(), branch_name];
-                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input);
+                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
                     app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                     Ok(())
-                }),
+                })),
             }));
         }
 
@@ -128,13 +132,13 @@ impl Command for SessionCommand {
                     title: "Select session branch to close".to_string(),
                     items: session_branches,
                     selected_index: 0,
-                    on_select: Box::new(move |app, selected| {
+                    on_select: Box::new(move |app, selected| Box::pin(async move {
                         let new_input = format!("session close {}", selected);
                         let new_parts = vec!["session".to_string(), "close".to_string(), selected];
-                        let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input);
+                        let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
                         app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                         Ok(())
-                    }),
+                    })),
                 }));
             }
         }
@@ -146,7 +150,7 @@ impl Command for SessionCommand {
         })
     }
 
-    fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
+    async fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &Term) -> Result<String> {
         let cli = match SessionCli::try_parse_from(args) {
             Ok(cli) => cli,
             Err(e) => {

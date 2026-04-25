@@ -2,6 +2,7 @@ use anyhow::{Result, anyhow, Context};
 use std::path::PathBuf;
 use std::sync::Arc;
 use console::{Term, style};
+use futures::future::BoxFuture;
 use crate::domain::project::ProjectState;
 use crate::infrastructure::project_state::get_project_state;
 use crate::presentation::cli::hop::history_manager::HistoryManager;
@@ -12,13 +13,13 @@ pub struct SelectModal {
     pub title: String,
     pub items: Vec<String>,
     pub selected_index: usize,
-    pub on_select: Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>,
+    pub on_select: Box<dyn for<'a> FnOnce(&'a mut HopApp, String) -> BoxFuture<'a, Result<()>> + Send>,
 }
 
 pub struct InputModal {
     pub title: String,
     pub value: String,
-    pub on_submit: Box<dyn FnOnce(&mut HopApp, String) -> Result<()>>,
+    pub on_submit: Box<dyn for<'a> FnOnce(&'a mut HopApp, String) -> BoxFuture<'a, Result<()>> + Send>,
 }
 
 pub struct HopApp {
@@ -217,7 +218,8 @@ impl HopApp {
         self.history.limit_output((term_height as usize).saturating_sub(7).max(1));
     }
 
-    pub fn prepare_command_execution(&mut self, cmd_name: &str, cmd_to_execute: &str) -> bool {
+    pub fn prepare_command_execution(&mut self, parts: &[String], cmd_to_execute: &str) -> bool {
+        let cmd_name = if parts.is_empty() { "" } else { &parts[0] };
         self.is_terminal_view = cmd_name == "terminal";
 
         let (_term_height, term_width) = self.term.size();
@@ -233,8 +235,8 @@ impl HopApp {
         }
 
         let mut show_thinking = false;
-        if self.is_ai_chat_mode() && cmd_name == "ai" && cmd_to_execute.contains("chat-turn") {
-            self.history.push_output(&format!("{}", style("🐰 Thinking...").dim().italic()), right_width);
+        if cmd_name == "ai" && (self.is_ai_chat_mode() || (parts.len() > 1 && parts[1] != "--help" && parts[1] != "-h")) {
+            self.history.push_output(&format!("{}", style("🐰 usagi is thinking..").dim().italic()), right_width);
             show_thinking = true;
         }
 
@@ -253,16 +255,16 @@ impl HopApp {
         let _ = self.term.hide_cursor();
         let _ = self.term.flush();
 
-        self.handle_command_result(result, selected_worktree, cmd_to_execute, backup_input, backup_cursor);
-
         if show_thinking {
             self.history.pop_output();
         }
+
+        self.handle_command_result(result, selected_worktree, cmd_to_execute, backup_input, backup_cursor);
     }
 
-    pub fn run_command_with_parts(&mut self, parts: Vec<String>, cmd_to_execute: &str) -> (Result<String>, bool) {
+    pub async fn run_command_with_parts(&mut self, parts: Vec<String>, cmd_to_execute: &str) -> (Result<String>, bool) {
+        let show_thinking = self.prepare_command_execution(&parts, cmd_to_execute);
         let cmd_name = if parts.is_empty() { "".to_string() } else { parts[0].clone() };
-        let show_thinking = self.prepare_command_execution(&cmd_name, cmd_to_execute);
         
         let selected_worktree = self.worktrees[self.selected_index].clone();
 
@@ -272,7 +274,7 @@ impl HopApp {
 
         let parts = parts;
         let result: Result<String> = if let Some(cmd) = command {
-            cmd.run(parts, &self.project_path, &selected_worktree, &self.term)
+            cmd.run(parts, &self.project_path, &selected_worktree, &self.term).await
         } else {
             if cmd_name.is_empty() {
                 Ok("".to_string())

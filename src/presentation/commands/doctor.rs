@@ -1,12 +1,14 @@
 use anyhow::Result;
 use std::path::Path;
 use std::process::Command as ProcessCommand;
+use async_trait::async_trait;
+use console::{style, Term};
 use crate::presentation::commands::Command;
 use crate::presentation::tui::home::ui::animate_rabbit;
-use console::style;
 
 pub struct DoctorCommand;
 
+#[async_trait]
 impl Command for DoctorCommand {
     fn name(&self) -> &str {
         "doctor"
@@ -21,7 +23,7 @@ impl Command for DoctorCommand {
 Usage: doctor"
     }
 
-    fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &console::Term) -> Result<String> {
+    async fn run(&self, _args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &Term) -> Result<String> {
         animate_rabbit(term, 1200, false);
         Ok(self.check_all())
     }
