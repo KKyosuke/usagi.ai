@@ -8,6 +8,7 @@
 - **Rust** (Cargo): ビルドに使用します。
 - **Git**: リポジトリ操作に使用します。
 - **bash** (macOS/Linux) または **cmd.exe** (Windows): ターミナル機能に使用します。
+- **AWS CLI**: AWS 認証等に使用します。
 
 ### 推奨ツール
 - **Node.js / npm**

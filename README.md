@@ -12,6 +12,7 @@ A tool designed for efficient use of AI Agent CLIs.
 
 - **Git** (Essential): Used for cloning repositories and managing worktrees.
 - **Bash** (macOS/Linux) or **cmd.exe** (Windows) (Essential): Used for the interactive terminal.
+- **AWS CLI** (Essential): Used for AWS SSO login and other AWS operations.
 - **Node.js / npm** (Optional): Often required by AI agents and development environments.
 - **Python** (Optional): Often required by AI agents and scripts.
 
@@ -92,5 +93,5 @@ For more details on initialization, see [doc/cli/init.md](doc/cli/init.md).
 When you run `usagi init`, the following structure is created:
 
 - `root/`
-  - `main/`: The repository is cloned here. The directory name is based on the default branch name (with `/` converted to `-`).
+  - `main/`: The repository is cloned here.
   - `usagi.config`: A configuration file is automatically generated.
