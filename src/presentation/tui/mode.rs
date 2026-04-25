@@ -5,7 +5,7 @@ pub enum AppMode {
     Global,
     SideMenu,
     Command,
-    AiChat,
+    Interaction,
 }
 
 impl AppMode {
@@ -14,7 +14,7 @@ impl AppMode {
             AppMode::Global => "全体モード",
             AppMode::SideMenu => "サイドメニューモード",
             AppMode::Command => "コマンドモード",
-            AppMode::AiChat => "AI CHAT モード",
+            AppMode::Interaction => "相互作用モード",
         }
     }
 }
