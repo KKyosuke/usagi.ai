@@ -5,8 +5,8 @@
 ## 画面一覧 (Screen List)
 
 1.  [うさぎ画面 (Rabbit Screen)](#1-うさぎ画面-rabbit-screen)
-2.  [プロジェクト選択画面 (Project Selection Screen)](#2-プロジェクト選択画面-project-selection-screen)
-3.  [プロジェクト画面 (Project Screen)](#3-プロジェクト画面-project-screen)
+2.  [Open画面 (Open Screen) / プロジェクト選択画面](#2-open画面-open-screen--プロジェクト選択画面)
+3.  [Workspace画面 (Workspace Screen) / プロジェクト画面](#3-workspace画面-workspace-screen--プロジェクト画面)
 
 ---
 
@@ -26,7 +26,7 @@
   USAGI AI
 ```
 
-## 2. プロジェクト選択画面 (Project Selection Screen)
+## 2. Open画面 (Open Screen) / プロジェクト選択画面
 
 `usagi open` を実行した際に表示される、登録済みのプロジェクト（リポジトリ）を選択するための画面です。
 
@@ -41,10 +41,10 @@
          v0.1.0 ⚡ plugins 4/55 in 23.885ms
 ```
 
-## 3. プロジェクト画面 (Project Screen)
+## 3. Workspace画面 (Workspace Screen) / プロジェクト画面
 
 `usagi hop` によって起動する、特定のプロジェクトを操作するためのメインのTUI画面です。
-以下の4つの主要なセクションで構成されています。
+以下の3つの主要なセクションで構成されています。
 
 ### サンプル (Layout Structure)
 ```text
@@ -52,7 +52,7 @@
 ----- USAGI TERMINAL -----
 MODE: SideMenu
 -----------------------------------------------------------------------
-[Side Menu]          | [Terminal View]
+[セッション一覧]        | [コンテンツ画面]
 workspace            | Welcome to usagi terminal! (Workspace: main)
 > ●  main            | 
      modified: ...   | ai hello
@@ -60,7 +60,7 @@ workspace            | Welcome to usagi terminal! (Workspace: main)
                      | 
                      | 
 -----------------------------------------------------------------------
-[Command Section]    | 
+[コマンド入力]          | 
 COMMAND              | ai 
                      | Enter: execute, Escape: cancel...
 -----------------------------------------------------------------------
@@ -70,20 +70,20 @@ COMMAND              | ai
 
 #### ヘッダー (Header)
 画面上部に表示されるエリアです。
-- **内容**: `----- USAGI TERMINAL -----` というタイトル、および現在の `MODE`（Global, SideMenu, Command, Execution）が表示されます。
+- **内容**: `----- USAGI TERMINAL -----` というタイトル、および現在の `MODE`（Global, SideMenu, Command, Interaction）が表示されます。
 
-#### サイドメニュー (Side Menu)
+#### セッション一覧 (Session List / Side Menu)
 画面左側のカラムです。
-- **内容**: ワークスペース（worktree）の一覧が表示されます。
-- **操作**: 矢印キー（上下）でワークスペースを選択できます。
+- **内容**: ワークスペース（worktree/セッション）の一覧が表示されます。
+- **操作**: 矢印キー（上下）でセッションを選択できます。
 
-#### ターミナルビュー (Terminal View)
+#### コンテンツ画面 (Content Screen / Terminal View)
 画面右側の広範なエリアです。
-- **内容**: 選択中のワークスペースへのウェルカムメッセージや、実行されたコマンドの履歴、AIの回答、およびターミナルコマンドの実行結果が表示されます。
-- **ターミナル機能**: `terminal <command>` と入力することで、選択中のワークスペースのディレクトリでシェルコマンドを実行できます。また、組み込みコマンドに該当しない入力も、自動的にターミナルコマンドとして実行が試行されます。
+- **内容**: 選択中のセッションへのウェルカムメッセージや、実行されたコマンドの履歴、AIの回答、およびターミナルコマンドの実行結果が表示されます。
+- **ターミナル機能**: `terminal <command>` と入力することで、選択中のディレクトリでシェルコマンドを実行できます。また、組み込みコマンドに該当しない入力も、自動的にターミナルコマンドとして実行が試行されます。
   - `terminal` を実行した場合には、このビューのタイトルが `TERMINAL` に切り替わります。
 
-#### コマンドセクション (Command Section)
+#### コマンド入力 (Command Input / Command Section)
 画面下部の入力エリアです。
 - **内容**: `COMMAND |` というプロンプトに続いてコマンドを入力できます。入力中はオートコンプリートのポップアップが表示されます。
 
@@ -91,5 +91,6 @@ COMMAND              | ai
 
 ## 関連ドキュメント
 
+- [画面遷移](./transition.md)
 - [モードの種類と切り替え](./mode.md)
 - [ソースコードの構造](./src.md)
