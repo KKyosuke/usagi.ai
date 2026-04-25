@@ -100,11 +100,12 @@ COMMAND                  │ session
 | コマンド | 説明 |
 |---|---|
 | [`ai`](../tui/ai.md) | AI にメッセージを送信する |
-| [`close`](../tui/close.md) | セッションを終了してプロジェクト選択画面へ戻る |
+| [`doctor`](../tui/doctor.md) | システム依存関係の確認 |
 | [`history`](../tui/history.md) | コマンド履歴を表示する |
 | [`man`](../tui/man.md) | コマンドのヘルプを表示する |
-| [`session`](../tui/session.md) | 新しいセッション（ブランチ＋worktree）を作成する |
-| [`space`](../tui/space.md) | ワークスペースを切り替える |
+| [`session`](../tui/session.md) | セッション（ブランチ＋worktree）を管理する |
+| [`space`](../tui/space.md) | ワークスペース（worktree）を切り替える |
+| [`terminal`](../tui/terminal.md) | 対話型ターミナルの起動 |
 
 ## 処理フロー
 
@@ -125,9 +126,9 @@ flowchart TD
     J -- コマンドモード --> N[コマンド入力]
     N --> O{Enterキー}
     O --> P[コマンドを実行]
-    P --> Q{コマンド結果}
-    Q -- close --> R[終了・プロジェクト選択へ]
-    Q -- その他 --> I
+    P --> Q{終了リクエスト?}
+    Q -- Yes --> R[終了・プロジェクト選択へ]
+    Q -- No --> I
     C -- Quit --> S[アプリ終了]
 ```
 

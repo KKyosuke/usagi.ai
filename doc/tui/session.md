@@ -51,6 +51,14 @@ session update [--all] [--base <BASE_BRANCH>]
 `update` を実行すると、指定したベースブランチ（デフォルトはリモートのデフォルトブランチ）から最新の変更を取り込みます（`git rebase` を使用）。
 ベースブランチにリモート名が含まれる場合（例: `origin/main`）、事前に `git fetch` を実行します。
 
+### `status` — セッションの状態を表示
+
+```
+session status
+```
+
+現在の全てのセッションの状態（ブランチ名、ディレクトリ名、デフォルトかどうか、状態（Open/Closed/Unknown））を表示します。
+
 ## 例
 
 ```

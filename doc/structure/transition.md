@@ -6,19 +6,20 @@
 
 | 画面名 | 起動コマンド | 説明 |
 |---|---|---|
-| **トップ画面** | `usagi hop` | 特定のプロジェクトを作業対象として起動した際の初期画面です。 |
-| **Open画面** | `usagi open` | 登録済みのプロジェクト（リポジトリ）の一覧を表示し、選択するための画面です。 |
-| **Workspace画面** | (Open画面から遷移) | プロジェクトを選択した後に表示される、実際の作業を行うためのメイン画面です。 |
+| **Home 画面** | `usagi hop` | 起動直後のメニュー画面です。ここからプロジェクトを選択したり終了したりします。 |
+| **プロジェクト選択画面** | (Home 画面から遷移) | 登録済みのプロジェクト（リポジトリ）の一覧から作業対象を選択します。 |
+| **Workspace 画面** | (プロジェクト選択後) | セッション管理や AI チャット、ターミナル操作を行うメイン画面です。 |
 
 ## 画面遷移フロー
 
 ```mermaid
 flowchart TD
-    StartHop([usagi hop 起動]) --> Top[トップ画面]
-    StartOpen([usagi open 起動]) --> Open[Open画面]
+    StartHop([usagi hop 起動]) --> Home[Home 画面]
     
-    Open -- プロジェクト選択 --> Workspace[Workspace画面]
-    Top --> Workspace
+    Home -- Open --> ProjectSelect[プロジェクト選択画面]
+    Home -- Quit --> Exit([終了])
+    
+    ProjectSelect -- プロジェクト選択 --> Workspace[Workspace 画面]
 ```
 
 ## Workspace画面の構成

@@ -7,7 +7,6 @@ use futures::stream::BoxStream;
 use crate::presentation::cli::hop::app::{SelectModal, InputModal};
 use crate::domain::project::ProjectState;
 
-pub mod close;
 pub mod doctor;
 pub mod history;
 pub mod man;
@@ -92,7 +91,6 @@ pub trait Command: Send + Sync {
 /// Returns all built-in TUI commands.
 pub fn get_commands() -> Vec<Arc<dyn Command>> {
     vec![
-        Arc::new(close::CloseCommand),
         Arc::new(doctor::DoctorCommand),
         Arc::new(history::HistoryCommand),
         Arc::new(man::ManCommand),

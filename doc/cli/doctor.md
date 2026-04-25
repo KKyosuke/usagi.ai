@@ -20,6 +20,7 @@ usagi doctor
 |---|---|---|
 | `git` | **必須 (Essential)** | リポジトリのクローンやワークツリーの作成に使用します。 |
 | `bash` / `cmd.exe` | **必須 (Essential)** | ターミナルで使用するシェルです。 |
+| `aws` | **必須 (Essential)** | AWS SSO ログインなどの AWS 操作に使用します。 |
 | `node` / `npm` | 任意 (Optional) | AI エージェントの実行や開発環境で必要になる場合があります。 |
 | `python` / `python3` | 任意 (Optional) | AI エージェントの実行やスクリプト実行で必要になる場合があります。 |
 
@@ -33,6 +34,7 @@ usagi doctor
 🐰 USAGI DOCTOR is checking your system... 🐰
 🥕 git        (Essential) git version 2.39.3 (Apple Git-146)
 🥕 bash       (Essential) GNU bash, version 3.2.57(1)-release (arm64-apple-darwin23)
+🥕 aws        (Essential) aws-cli/2.15.30 Python/3.11.8 Darwin/23.4.0 exe/x86_64 prompt/off
 🥕 node       (Optional)  v24.13.0
 🥕 npm        (Optional)  11.6.2
 🥕 python3    (Optional)  Python 3.13.5

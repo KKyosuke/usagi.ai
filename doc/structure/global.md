@@ -1,17 +1,13 @@
 # グローバルなプロジェクト情報管理（共通DB）
 
 `usagi` は、システム全体で初期化済みプロジェクトを追跡するためのグローバルなレジストリを持ちます。
-このレジストリは `usagi open` でプロジェクト一覧を表示する際に利用されます。
+このレジストリは `usagi hop` でプロジェクト一覧を選択する際に利用されます。
 
 ## 保存場所
 
-OS ごとのユーザーデータディレクトリに保存されます。
+ホームディレクトリの `.usagi` ディレクトリに保存されます。
 
-| OS | パス |
-|---|---|
-| macOS | `~/Library/Application Support/usagi/` |
-| Linux | `~/.local/share/usagi/` （または `$XDG_DATA_HOME/usagi/`） |
-| Windows | `C:\Users\<User>\AppData\Roaming\usagi\data\` |
+- **パス**: `~/.usagi/` （全 OS 共通）
 
 ## 保存ファイル
 
@@ -58,10 +54,10 @@ flowchart LR
 
 ## 参照のタイミング
 
-`usagi open` でプロジェクト一覧を表示する際に、このファイルが読み込まれます。
+`usagi hop` 内のプロジェクト選択画面で、このファイルが読み込まれます。
 
 ## 関連ドキュメント
 
 - [プロジェクト設定（usagi.config）](./project_config.md)
 - [`usagi init`](../cli/init.md)
-- [`usagi open`](../cli/open.md)
+- [`usagi hop`](../cli/hop.md)

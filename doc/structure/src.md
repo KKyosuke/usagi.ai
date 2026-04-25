@@ -31,6 +31,7 @@ src/
 │
 ├── infrastructure/              # 【インフラ層】外部システムとのやりとり
 │   ├── project_state.rs         # プロジェクト単体の永続化 (.usagi/state.json)
+│   ├── project_history.rs       # プロジェクト単体の履歴管理 (.usagi/history.json)
 │   ├── global_registry.rs       # usagi共通のリポジトリ一覧管理 (repositories.json)
 │   └── git.rs                   # Gitオペレーション (clone / worktree / branch)
 │
@@ -39,21 +40,26 @@ src/
 │
 └── presentation/                # 【プレゼンテーション層】表示・入力
     ├── tui/                     # ターミナルUI コンポーネント
+    │   ├── app_runner.rs        # Home -> ProjectSelect -> Hop の遷移管理
+    │   ├── home.rs              # usagi hop 起動時のメインメニュー
+    │   ├── project.rs           # プロジェクト選択画面
     │   ├── screen.rs            # AlternateScreenGuard（別スクリーン管理）
     │   ├── mode.rs              # AppMode（モード定義）
-    │   ├── layout.rs            # 描画ユーティリティ・MenuItem
-    │   └── open.rs              # ワークスペース選択TUI
+    │   └── layout.rs            # 描画ユーティリティ・MenuItem
     ├── cli/                     # CLIコマンドハンドラー
     │   ├── init.rs              # `usagi init` エントリポイント
-    │   ├── open.rs              # `usagi open` エントリポイント
-    │   └── hop.rs               # `usagi hop` エントリポイント・メインTUIループ
+    │   ├── aws.rs               # `usagi aws` エントリポイント
+    │   ├── ai.rs                # `usagi ai` エントリポイント
+    │   └── hop.rs               # `usagi hop` (Workspace) メインTUIループ
     └── commands/                # TUI内コマンド実装
         ├── mod.rs               # Command トレイト・コマンド一覧
-        ├── close.rs             # `close` コマンド
+        ├── ai.rs                # `ai` コマンド
+        ├── doctor.rs            # `doctor` コマンド
         ├── history.rs           # `history` コマンド
         ├── man.rs               # `man` コマンド
         ├── session.rs           # `session` コマンド
-        └── space.rs             # `space` コマンド
+        ├── space.rs             # `space` コマンド
+        └── terminal.rs          # `terminal` コマンド
 ```
 
 ## 各層の責務
@@ -76,6 +82,7 @@ src/
 | ファイル | 内容 |
 |---|---|
 | `project_state.rs` | プロジェクト単体の状態管理。`<project>/.usagi/state.json` の読み書き |
+| `project_history.rs` | プロジェクト単体の履歴管理。`<project>/.usagi/history.json` の読み書き |
 | `global_registry.rs` | usagi共通のリポジトリ一覧管理。OS標準のデータディレクトリ内 `repositories.json` の読み書き |
 | `git.rs` | Git操作（リポジトリのクローン、worktreeの作成、ブランチの確認など） |
 
@@ -97,18 +104,21 @@ CLIのルーティング、TUIのレンダリング、インタラクティブ�
 
 | ファイル | 内容 |
 |---|---|
+| `app_runner.rs` | 画面全体の遷移フロー（Home -> ProjectSelect -> Hop）を制御 |
+| `home.rs` | 起動直後のメニュー（Open / New / Config / Quit）を表示 |
+| `project.rs` | プロジェクト一覧から一つを選択する画面 |
 | `screen.rs` | `AlternateScreenGuard`：別スクリーンへの切り替えとCtrl+C処理 |
-| `mode.rs` | `AppMode` enum：Global / SideMenu / Command / Execution の4モード |
+| `mode.rs` | `AppMode` enum：SideMenu / Command / Interaction / Execution の4モード |
 | `layout.rs` | ウサギキャラクター・サイドメニュー・フッターの描画関数 |
-| `open.rs` | `usagi open` / `usagi hop` で使うプロジェクト選択TUI |
 
 #### `presentation/cli/` — CLIコマンドハンドラー
 
 | ファイル | 内容 |
 |---|---|
 | `init.rs` | `usagi init` を受け取り、ユースケース層に委譲 |
-| `open.rs` | `usagi open` を受け取り、TUIを起動してhopに遷移 |
-| `hop.rs` | `usagi hop` のメインTUIイベントループ |
+| `aws.rs` | `usagi aws` コマンドのエントリポイント |
+| `ai.rs` | `usagi ai` コマンドのエントリポイント |
+| `hop.rs` | `usagi hop` (Workspace画面) のメインTUIイベントループ |
 
 #### `presentation/commands/` — TUI内コマンド
 
@@ -117,11 +127,13 @@ TUI起動中にコマンド入力欄から実行できるコマンドを定義�
 | ファイル | 内容 |
 |---|---|
 | `mod.rs` | `Command` トレイト定義と、全コマンドのファクトリ関数 |
-| `close.rs` | ターミナルを閉じてプロジェクト選択画面に戻る（`close`） |
+| `ai.rs` | AI への指示送信（`ai`） |
+| `doctor.rs` | システム依存関係の確認（`doctor`） |
 | `history.rs` | コマンド履歴の表示（`history`） |
 | `man.rs` | コマンドのヘルプ表示（`man [command]`） |
-| `session.rs` | 新しいセッション（ブランチ＋worktree）の作成（`session start <branch>`） |
+| `session.rs` | セッション（ブランチ＋worktree）の管理（`session start <branch>` など） |
 | `space.rs` | ワークスペースの切り替え（`space <worktree>`） |
+| `terminal.rs` | 対話型ターミナルの起動（`terminal`） |
 
 ## コマンドの呼び出しフロー
 
@@ -140,12 +152,12 @@ sequenceDiagram
     cli->>usecase: initialize::run()
     usecase->>infrastructure: git::clone(), project_state::save(), global_registry::register()
 
-    User->>main.rs: usagi open
-    main.rs->>cli: open::run()
-    cli->>tui: open::run_terminal_ui()
+    User->>main.rs: usagi hop
+    main.rs->>tui: app_runner::run()
+    tui->>tui: home::run() (Home画面)
+    tui->>tui: project::run() (プロジェクト選択)
     tui->>infrastructure: global_registry::get_repositories()
-    tui-->>cli: (選択されたプロジェクトパス)
-    cli->>cli: hop::run()
+    tui->>cli: hop::run(project_path) (Workspace画面)
 
     User->>cli: (コマンド入力: session start my-feature)
     cli->>commands: session::run()

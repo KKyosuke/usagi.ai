@@ -27,11 +27,12 @@ man
 ```
 Available commands:
   ai         Call the AI
-  close      Close the session
+  doctor     Check system dependencies
   history    Show command history
   man        Show manual
   session    Manage sessions
   space      Switch workspace
+  terminal   Open interactive terminal
 
 You can show detailed help with 'man <command>'.
 ```

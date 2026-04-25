@@ -25,20 +25,10 @@ history
 
 ## 履歴の保存先
 
-コマンド履歴はプロジェクトの `.usagi/state.json` 内の `history` フィールドに保存されます。
+コマンド履歴はプロジェクトの `.usagi/history.json` に保存されます。
 
 ```json
 {
-  "initialized": true,
-  "worktrees": [
-    {
-      "branch": "main",
-      "directory": "main",
-      "default": true,
-      "modified_at": "2026-04-09 20:01 UTC"
-    }
-  ],
-  "current_worktree": "main",
   "history": [
     "session start my-feature",
     "space my-feature"

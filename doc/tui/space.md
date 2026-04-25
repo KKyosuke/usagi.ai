@@ -51,8 +51,7 @@ space main
       "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
-  "current_worktree": "my-feature",
-  "history": [...]
+  "current_worktree": "my-feature"
 }
 
 // space main 実行後
@@ -72,8 +71,7 @@ space main
       "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
-  "current_worktree": null,
-  "history": [...]
+  "current_worktree": null
 }
 ```
 

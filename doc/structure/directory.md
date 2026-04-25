@@ -7,7 +7,8 @@
 ```text
 <project-root>/
 ├── .usagi/                  # usagi.ai の内部管理ディレクトリ（手動編集不要）
-│   └── state.json           # プロジェクト状態（初期化フラグ・worktree一覧・履歴など）
+│   ├── state.json           # プロジェクト状態（初期化フラグ・worktree一覧など）
+│   └── history.json         # コマンド実行履歴
 ├── main/                    # クローンされたリポジトリ（メイン worktree）
 ├── usagi.config             # プロジェクト設定ファイル（リポジトリURLなど）
 └── .gitignore               # .usagi/ を無視する設定が追記される
@@ -51,14 +52,11 @@
       "branch": "my-feature",
       "directory": "my-feature",
       "default": false,
+      "status": "Open",
       "modified_at": "2026-04-09 20:01 UTC"
     }
   ],
-  "current_worktree": "my-feature",
-  "history": [
-    "session start my-feature",
-    "space my-feature"
-  ]
+  "current_worktree": "my-feature"
 }
 ```
 
@@ -67,12 +65,24 @@
 | `initialized` | `bool` | プロジェクトが初期化済みかどうか |
 | `worktrees` | `Vec<Worktree>` | 作成された worktree オブジェクトの一覧 |
 | `current_worktree` | `String | null` | 現在アクティブな branch 名（`main` の場合は `null`） |
-| `history` | `Vec<String>` | TUI コマンドの実行履歴 |
+
+#### `.usagi/history.json`
+
+TUI コマンドの実行履歴を管理する JSON ファイルです。
+
+```json
+{
+  "history": [
+    "session start my-feature",
+    "space my-feature"
+  ]
+}
+```
 
 ### `main/`
 
 指定したリポジトリがクローンされるメインの作業ディレクトリです。
-ディレクトリ名はデフォルトブランチ名から生成されます（`/` は `-` に変換）。
+ディレクトリ名は常に `main` となります。
 
 ### `usagi.config`
 
