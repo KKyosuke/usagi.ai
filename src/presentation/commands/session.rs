@@ -4,10 +4,9 @@ use clap::{Parser, Subcommand, CommandFactory};
 use crate::infrastructure::project_state::{get_project_state, save_project_state};
 use crate::infrastructure::git;
 use crate::domain::project::Worktree;
-use crate::presentation::cli::hop::app::{HopApp, SelectModal, InputModal};
-use crate::presentation::cli::hop::ui;
+use crate::presentation::cli::hop::app::{SelectModal, InputModal};
 use console::style;
-use crate::presentation::commands::Command;
+use crate::presentation::commands::{Command, CommandContext, CommandAction};
 
 pub struct SessionCommand;
 
@@ -34,7 +33,8 @@ impl Command for SessionCommand {
         HELP
     }
 
-    fn is_match(&self, _app: &HopApp, parts: &[String]) -> bool {
+    fn is_match(&self, context: &CommandContext) -> bool {
+        let parts = &context.parts;
         let has_remote = parts.iter().any(|p| p == "--remote" || p == "-r");
         let has_base = parts.iter().any(|p| p == "--base" || p == "-b");
         
@@ -45,32 +45,24 @@ impl Command for SessionCommand {
         is_session_start_remote || is_session_start_interactive || is_session_close_interactive || parts.get(0).map_or(false, |name| name == self.name())
     }
 
-    fn execute(&self, app: &mut HopApp, parts: Vec<String>) -> Result<bool> {
+    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+        let parts = context.parts;
         let has_remote = parts.iter().any(|p| p == "--remote" || p == "-r");
         let has_base = parts.iter().any(|p| p == "--base" || p == "-b");
         let cmd_to_execute = parts.join(" ");
-        let selected_worktree = app.worktrees[app.selected_index].clone();
+        let selected_worktree = context.worktrees[context.selected_index].clone();
 
         let is_session_start_remote = parts.len() >= 2 && parts[0] == "session" && parts[1] == "start" && has_remote && !has_base;
         if is_session_start_remote {
-            let _show_thinking = app.prepare_command_execution(self.name(), &cmd_to_execute);
-            let (_term_height, term_width) = app.term.size();
-            let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
-
-            app.history.push_output(&format!("{}", style("Fetching remote branches...").dim()), right_width);
-            ui::render(app)?;
-            let _ = app.term.flush();
-
-            let _ = crate::infrastructure::git::fetch(&app.project_path, "origin");
-            let remote_branches = crate::infrastructure::git::list_remote_branches(&app.project_path)?;
-            app.history.pop_output(); // Remove "Fetching..."
+            let _ = crate::infrastructure::git::fetch(context.project_path, "origin");
+            let remote_branches = crate::infrastructure::git::list_remote_branches(context.project_path)?;
 
             if remote_branches.is_empty() {
-                app.history.push_output(&format!("{}", style("No remote branches found.").red()), right_width);
+                return Ok(CommandAction::DisplayMessage(format!("{}", style("No remote branches found.").red())));
             } else {
                 let parts_clone = parts.clone();
                 let selected_worktree_clone = selected_worktree.clone();
-                app.select_modal = Some(SelectModal {
+                return Ok(CommandAction::SetSelectModal(SelectModal {
                     title: "Select base branch from remote".to_string(),
                     items: remote_branches,
                     selected_index: 0,
@@ -100,22 +92,14 @@ impl Command for SessionCommand {
                         }
                         Ok(())
                     }),
-                });
+                }));
             }
-
-            app.save_history(&cmd_to_execute)?;
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history.reset_input_index();
-            return Ok(true);
         }
 
         let is_session_start_interactive = parts.len() == 2 && parts[0] == "session" && parts[1] == "start" && !has_remote;
         if is_session_start_interactive {
-            let _ = app.prepare_command_execution(self.name(), &cmd_to_execute);
-
             let selected_worktree_clone = selected_worktree.clone();
-            app.input_modal = Some(InputModal {
+            return Ok(CommandAction::SetInputModal(InputModal {
                 title: "Enter session branch name:".to_string(),
                 value: "".to_string(),
                 on_submit: Box::new(move |app, branch_name| {
@@ -125,32 +109,22 @@ impl Command for SessionCommand {
                     app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                     Ok(())
                 }),
-            });
-
-            app.save_history(&cmd_to_execute)?;
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history.reset_input_index();
-            return Ok(true);
+            }));
         }
 
         let is_session_close_interactive = parts.len() == 2 && parts[0] == "session" && parts[1] == "close";
         if is_session_close_interactive {
-            let _ = app.prepare_command_execution(self.name(), &cmd_to_execute);
-
-            let session_branches: Vec<String> = app.state.worktrees
+            let session_branches: Vec<String> = context.state.worktrees
                 .iter()
                 .filter(|w| !w.default)
                 .map(|w| w.branch.clone())
                 .collect();
 
             if session_branches.is_empty() {
-                let (_term_height, term_width) = app.term.size();
-                let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
-                app.history.push_output(&format!("{}", style("No sessions available to close.").red()), right_width);
+                return Ok(CommandAction::DisplayMessage(format!("{}", style("No sessions available to close.").red())));
             } else {
                 let selected_worktree_clone = selected_worktree.clone();
-                app.select_modal = Some(SelectModal {
+                return Ok(CommandAction::SetSelectModal(SelectModal {
                     title: "Select session branch to close".to_string(),
                     items: session_branches,
                     selected_index: 0,
@@ -161,21 +135,15 @@ impl Command for SessionCommand {
                         app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
                         Ok(())
                     }),
-                });
+                }));
             }
-
-            app.save_history(&cmd_to_execute)?;
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history.reset_input_index();
-            return Ok(true);
         }
 
-        // Default run
-        let show_thinking = app.prepare_command_execution(self.name(), &cmd_to_execute);
-        let result = self.run(parts, &app.project_path, &selected_worktree, &app.term);
-        app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &cmd_to_execute, 0, show_thinking);
-        Ok(true)
+        Ok(CommandAction::RunCommand {
+            parts,
+            cmd_to_execute,
+            close_after: false,
+        })
     }
 
     fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {

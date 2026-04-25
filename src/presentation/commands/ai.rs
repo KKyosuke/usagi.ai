@@ -2,9 +2,10 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use console::style;
 use std::path::Path;
-use crate::presentation::cli::hop::app::{HopApp, SelectModal};
+use std::sync::Arc;
+use crate::presentation::cli::hop::app::SelectModal;
 
-use crate::presentation::commands::Command;
+use crate::presentation::commands::{Command, CommandContext, CommandAction};
 
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
@@ -66,37 +67,33 @@ impl Command for AiCommand {
         ]
     }
 
-    fn is_match(&self, app: &HopApp, parts: &[String]) -> bool {
+    fn is_match(&self, context: &CommandContext) -> bool {
+        let parts = &context.parts;
         let is_ai_set_model = parts.len() == 2 && parts[0] == "ai" && parts[1] == "--set-model";
         let is_ai_chat = parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat";
 
-        if is_ai_set_model || (is_ai_chat && app.state.ai_model.is_none()) {
+        if is_ai_set_model || (is_ai_chat && context.state.ai_model.is_none()) {
             return true;
         }
 
-        if is_ai_chat && !app.state.ai_model.is_none() {
+        if is_ai_chat && context.state.ai_model.is_some() {
             return true;
         }
 
-        if app.is_ai_chat_mode {
+        if context.is_interaction_mode {
             return true;
         }
 
         parts.get(0).map_or(false, |name| name == self.name())
     }
 
-    fn execute(&self, app: &mut HopApp, parts: Vec<String>) -> Result<bool> {
+    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+        let parts = context.parts;
         let is_ai_set_model = parts.len() == 2 && parts[0] == "ai" && parts[1] == "--set-model";
         let is_ai_chat = parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat";
         let cmd_to_execute = parts.join(" ");
-        let selected_worktree = app.worktrees[app.selected_index].clone();
 
-        if is_ai_set_model || (is_ai_chat && app.state.ai_model.is_none()) {
-            let (_term_height, term_width) = app.term.size();
-            let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
-            let prompt_text = format!("{} {} {}", style(&selected_worktree).cyan(), ">", cmd_to_execute);
-            app.history.push_output(&prompt_text, right_width);
-
+        if is_ai_set_model || (is_ai_chat && context.state.ai_model.is_none()) {
             if let Some(user_dirs) = directories::UserDirs::new() {
                 let models_dir = user_dirs.home_dir().join(".usagi").join("models");
                 let mut available_models = Vec::new();
@@ -114,9 +111,9 @@ impl Command for AiCommand {
                 }
                 
                 if available_models.is_empty() {
-                    app.history.push_output(&format!("{}", style("No models found in ~/.usagi/models/. Please run 'usagi ai install' first.").red()), right_width);
+                    return Ok(CommandAction::DisplayMessage(format!("{}", style("No models found in ~/.usagi/models/. Please run 'usagi ai install' first.").red())));
                 } else {
-                    app.select_modal = Some(SelectModal {
+                    return Ok(CommandAction::SetSelectModal(SelectModal {
                         title: " AI model is not set. Please select a default model. ".to_string(),
                         items: available_models,
                         selected_index: 0,
@@ -133,7 +130,7 @@ impl Command for AiCommand {
                             }
                             
                             if is_ai_chat && app.state.ai_model.is_some() {
-                                app.is_ai_chat_mode = true;
+                                app.active_interaction = Some(Arc::new(AiCommand));
                                 app.history.clear_output();
                                 let (_term_height, term_width) = app.term.size();
                                 let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
@@ -141,51 +138,38 @@ impl Command for AiCommand {
                             }
                             Ok(())
                         }),
-                    });
+                    }));
                 }
             }
-
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history.reset_input_index();
-            return Ok(true);
+            return Ok(CommandAction::ClearInput);
         }
 
-        if is_ai_chat && !app.state.ai_model.is_none() {
-            app.is_ai_chat_mode = true;
-            app.current_input.clear();
-            app.cursor_pos = 0;
-            app.history.reset_input_index();
-            app.history.clear_output();
-            let (_term_height, term_width) = app.term.size();
-            let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
-            app.history.push_output(&format!("{}", style("🐰 Entered AI Chat Mode. Type 'exit' to end.").cyan().bold()), right_width);
-            return Ok(true);
+        if is_ai_chat && context.state.ai_model.is_some() {
+            return Ok(CommandAction::EnterInteraction);
         }
 
-        let mut parts = parts;
-        if app.is_ai_chat_mode {
-            let original_input = cmd_to_execute.trim();
-            if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
-                app.is_ai_chat_mode = false;
-                app.is_command_mode = false;
-                app.current_input.clear();
-                app.cursor_pos = 0;
-                app.history.reset_input_index();
-                app.history.clear_output();
-                let (_term_height, term_width) = app.term.size();
-                let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
-                app.history.push_output(&format!("{}", style("AI chat session ended.").dim()), right_width);
-                return Ok(true);
-            }
-            parts = vec!["ai".to_string(), "chat-turn".to_string(), original_input.to_string()];
+        Ok(CommandAction::RunCommand {
+            parts,
+            cmd_to_execute,
+            close_after: false,
+        })
+    }
+
+    fn interact(&self, context: CommandContext) -> Result<CommandAction> {
+        let cmd_to_execute = context.parts.join(" ");
+        let original_input = cmd_to_execute.trim();
+        
+        if original_input.eq_ignore_ascii_case("exit") || original_input.eq_ignore_ascii_case("quit") {
+            return Ok(CommandAction::ExitInteraction);
         }
 
-        let show_thinking = app.prepare_command_execution(self.name(), &cmd_to_execute);
-        let result = self.run(parts, &app.project_path, &selected_worktree, &app.term);
-        app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &cmd_to_execute, 0, show_thinking);
-
-        Ok(true)
+        let parts = vec!["ai".to_string(), "chat-turn".to_string(), original_input.to_string()];
+        
+        Ok(CommandAction::RunCommand {
+            parts,
+            cmd_to_execute,
+            close_after: false,
+        })
     }
 
     fn run(&self, args: Vec<String>, _project_path: &Path, _current_worktree: &str, term: &console::Term) -> Result<String> {

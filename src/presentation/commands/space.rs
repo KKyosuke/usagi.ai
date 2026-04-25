@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::path::Path;
 use crate::infrastructure::project_state::{get_project_state, save_project_state};
-use crate::presentation::commands::Command;
+use crate::presentation::commands::{Command, CommandContext, CommandAction};
 
 pub struct SpaceCommand;
 
@@ -28,6 +28,21 @@ impl Command for SpaceCommand {
 
     fn usage(&self, _args: &[&str]) -> Option<String> {
         Some("Usage: space <WORKTREE>".to_string())
+    }
+
+    fn execute(&self, context: CommandContext) -> Result<CommandAction> {
+        let mut parts = context.parts;
+        let cmd_to_execute = parts.join(" ");
+
+        if parts.len() == 1 {
+            parts.push(context.worktrees[context.selected_index].clone());
+        }
+
+        Ok(CommandAction::RunCommand {
+            parts,
+            cmd_to_execute,
+            close_after: true,
+        })
     }
 
     fn run(&self, args: Vec<String>, project_path: &Path, _current_worktree: &str, _term: &console::Term) -> Result<String> {
