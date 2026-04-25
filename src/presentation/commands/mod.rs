@@ -21,7 +21,6 @@ pub struct CommandContext {
     pub state: ProjectState,
     pub worktrees: Vec<String>,
     pub selected_index: usize,
-    pub is_interaction_mode: bool,
     pub input_history: Vec<String>,
     pub project_path: PathBuf,
 }
@@ -55,8 +54,26 @@ pub trait Command: Send + Sync {
     fn description(&self) -> &str;
     fn help(&self) -> &str;
     async fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, term: &Term) -> Result<String>;
-    fn is_match(&self, context: &CommandContext) -> bool {
-        context.parts.get(0).map_or(false, |name| name == self.name())
+    fn is_match(&self, parts: &[String]) -> bool {
+        parts.get(0).map_or(false, |name| name == self.name())
+    }
+    fn prompt_sign(&self) -> &str {
+        ">"
+    }
+    fn is_long_running(&self, _parts: &[String]) -> bool {
+        false
+    }
+    fn is_terminal(&self) -> bool {
+        false
+    }
+    fn interaction_label(&self) -> String {
+        self.name().to_uppercase()
+    }
+    fn should_close_command_mode(&self, _parts: &[String]) -> bool {
+        false
+    }
+    fn should_sync_selection(&self, _parts: &[String]) -> bool {
+        false
     }
     async fn execute(&self, _context: CommandContext) -> Result<CommandAction> {
         Ok(CommandAction::None)

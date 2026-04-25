@@ -70,24 +70,18 @@ impl Command for AiCommand {
         ]
     }
 
-    fn is_match(&self, context: &CommandContext) -> bool {
-        let parts = &context.parts;
-        let is_ai_set_model = parts.len() == 2 && parts[0] == "ai" && parts[1] == "--set-model";
-        let is_ai_chat = parts.len() == 2 && parts[0] == "ai" && parts[1] == "chat";
+    fn prompt_sign(&self) -> &str {
+        "(ai) >"
+    }
 
-        if is_ai_set_model || (is_ai_chat && context.state.ai_model.is_none()) {
-            return true;
-        }
+    fn interaction_label(&self) -> String {
+        "AI CHAT".to_string()
+    }
 
-        if is_ai_chat && context.state.ai_model.is_some() {
-            return true;
-        }
-
-        if context.is_interaction_mode {
-            return true;
-        }
-
-        parts.get(0).map_or(false, |name| name == self.name())
+    fn is_long_running(&self, parts: &[String]) -> bool {
+        // ai chatモード中、または引数がある（help以外）場合にworking表示を表示
+        // parts[0]は"ai"
+        parts.len() > 1 && parts[1] != "--help" && parts[1] != "-h"
     }
 
     async fn execute(&self, context: CommandContext) -> Result<CommandAction> {

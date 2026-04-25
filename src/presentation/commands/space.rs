@@ -33,6 +33,10 @@ impl Command for SpaceCommand {
         Some("Usage: space <WORKTREE>".to_string())
     }
 
+    fn should_sync_selection(&self, _parts: &[String]) -> bool {
+        true
+    }
+
     async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
         let mut parts = context.parts;
         let cmd_to_execute = parts.join(" ");

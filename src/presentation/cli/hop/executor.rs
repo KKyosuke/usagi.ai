@@ -22,7 +22,6 @@ pub async fn execute_command(app: &mut HopApp) -> Result<bool> {
         state: app.state.clone(),
         worktrees: app.worktrees.clone(),
         selected_index: app.selected_index,
-        is_interaction_mode: app.active_interaction.is_some(),
         input_history: app.history.input_history.history.clone(),
         project_path: app.project_path.clone(),
     };
@@ -32,7 +31,7 @@ pub async fn execute_command(app: &mut HopApp) -> Result<bool> {
         (Some(Arc::clone(cmd)), true)
     } else {
         let cmd = app.commands.iter()
-            .find(|c| c.is_match(&context))
+            .find(|c| c.is_match(&parts))
             .map(|c| Arc::clone(c));
         (cmd, false)
     };
@@ -133,8 +132,8 @@ async fn handle_action(app: &mut HopApp, action: CommandAction, cmd: &Arc<dyn Co
                 app.is_command_mode = false;
             }
             let selected_worktree = app.worktrees[app.selected_index].clone();
-            let (result, show_thinking) = app.run_command_with_parts(parts, &cmd_to_execute).await;
-            app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &cmd_to_execute, 0, show_thinking);
+            let (result, is_long_running, command) = app.run_command_with_parts(parts.clone(), &cmd_to_execute).await;
+            app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &cmd_to_execute, 0, is_long_running, &parts, command);
             Ok(true)
         }
         CommandAction::Exit => Ok(false),
@@ -148,8 +147,8 @@ async fn execute_fallback(app: &mut HopApp, parts: Vec<String>) -> Result<bool> 
     let backup_input = app.current_input.clone();
     let backup_cursor = app.cursor_pos;
 
-    let (result, show_thinking) = app.run_command_with_parts(parts, &cmd_to_execute).await;
-    app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &backup_input, backup_cursor, show_thinking);
+    let (result, is_long_running, command) = app.run_command_with_parts(parts.clone(), &cmd_to_execute).await;
+    app.finalize_command_execution(result, &selected_worktree, &cmd_to_execute, &backup_input, backup_cursor, is_long_running, &parts, command);
     Ok(true)
 }
 

@@ -28,8 +28,7 @@ impl Command for HistoryCommand {
         HELP
     }
 
-    fn is_match(&self, context: &CommandContext) -> bool {
-        let parts = &context.parts;
+    fn is_match(&self, parts: &[String]) -> bool {
         if !parts.is_empty() {
             if parts[0].parse::<usize>().is_ok() {
                 return true;

@@ -37,6 +37,14 @@ Usage: terminal [command]
 Example: terminal /bin/bash"
     }
 
+    fn prompt_sign(&self) -> &str {
+        "$"
+    }
+
+    fn is_terminal(&self) -> bool {
+        true
+    }
+
     async fn run(&self, args: Vec<String>, project_path: &Path, current_worktree: &str, _term: &ConsoleTerm) -> Result<String> {
         let state = get_project_state(project_path)?;
         

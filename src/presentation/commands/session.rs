@@ -36,8 +36,7 @@ impl Command for SessionCommand {
         HELP
     }
 
-    fn is_match(&self, context: &CommandContext) -> bool {
-        let parts = &context.parts;
+    fn is_match(&self, parts: &[String]) -> bool {
         let has_remote = parts.iter().any(|p| p == "--remote" || p == "-r");
         let has_base = parts.iter().any(|p| p == "--base" || p == "-b");
         
@@ -46,6 +45,10 @@ impl Command for SessionCommand {
         let is_session_close_interactive = parts.len() == 2 && parts[0] == "session" && parts[1] == "close";
 
         is_session_start_remote || is_session_start_interactive || is_session_close_interactive || parts.get(0).map_or(false, |name| name == self.name())
+    }
+
+    fn should_close_command_mode(&self, parts: &[String]) -> bool {
+        parts.get(1).map_or(false, |p| p == "close")
     }
 
     async fn execute(&self, context: CommandContext) -> Result<CommandAction> {
@@ -79,8 +82,8 @@ impl Command for SessionCommand {
                         
                         if has_branch {
                             let new_input = new_parts.join(" ");
-                            let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
-                            app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
+                            let (result, is_long_running, command) = app.run_command_with_parts(new_parts.clone(), &new_input).await;
+                            app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, is_long_running, &new_parts, command);
                         } else {
                             app.input_modal = Some(InputModal {
                                 title: "Enter session branch name:".to_string(),
@@ -88,8 +91,8 @@ impl Command for SessionCommand {
                                 on_submit: Box::new(move |app, branch_name| Box::pin(async move {
                                     new_parts.push(branch_name);
                                     let new_input = new_parts.join(" ");
-                                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
-                                    app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
+                                    let (result, is_long_running, command) = app.run_command_with_parts(new_parts.clone(), &new_input).await;
+                                    app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, is_long_running, &new_parts, command);
                                     Ok(())
                                 })),
                             });
@@ -109,8 +112,8 @@ impl Command for SessionCommand {
                 on_submit: Box::new(move |app, branch_name| Box::pin(async move {
                     let new_input = format!("session start {}", branch_name);
                     let new_parts = vec!["session".to_string(), "start".to_string(), branch_name];
-                    let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
-                    app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
+                    let (result, is_long_running, command) = app.run_command_with_parts(new_parts.clone(), &new_input).await;
+                    app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, is_long_running, &new_parts, command);
                     Ok(())
                 })),
             }));
@@ -135,8 +138,8 @@ impl Command for SessionCommand {
                     on_select: Box::new(move |app, selected| Box::pin(async move {
                         let new_input = format!("session close {}", selected);
                         let new_parts = vec!["session".to_string(), "close".to_string(), selected];
-                        let (result, show_thinking) = app.run_command_with_parts(new_parts, &new_input).await;
-                        app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, show_thinking);
+                        let (result, is_long_running, command) = app.run_command_with_parts(new_parts.clone(), &new_input).await;
+                        app.finalize_command_execution(result, &selected_worktree_clone, &new_input, &new_input, 0, is_long_running, &new_parts, command);
                         Ok(())
                     })),
                 }));

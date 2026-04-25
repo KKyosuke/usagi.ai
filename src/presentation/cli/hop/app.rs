@@ -140,28 +140,23 @@ impl HopApp {
         Ok(())
     }
 
-    pub fn is_ai_chat_mode(&self) -> bool {
-        self.active_interaction.as_ref().map(|c| c.name() == "ai").unwrap_or(false)
-    }
-
     pub fn save_history(&mut self, cmd: &str) -> Result<()> {
         self.refresh_state()?;
-        if !self.is_ai_chat_mode() {
+        if self.active_interaction.is_none() {
             self.history.save_input(cmd)?;
         }
         Ok(())
     }
 
-    pub fn handle_command_result(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize) {
+    pub fn handle_command_result(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize, parts: &[String], cmd: Option<Arc<dyn Command>>) {
         let (term_height, term_width) = self.term.size();
         let left_width = 30;
         let right_width = (term_width as usize).saturating_sub(left_width).saturating_sub(3);
 
-        let parts: Vec<&str> = cmd_to_execute.split_whitespace().collect();
-        let cmd_name = parts.first().unwrap_or(&"");
-        let is_session_close = *cmd_name == "session" && parts.get(1) == Some(&"close");
+        let should_close = cmd.as_ref().map_or(false, |c| c.should_close_command_mode(parts));
+        let should_sync = cmd.as_ref().map_or(false, |c| c.should_sync_selection(parts));
 
-        if *cmd_name == "close" || is_session_close {
+        if should_close {
             if result.is_ok() {
                 self.is_command_mode = false;
                 let _ = self.refresh_state();
@@ -193,7 +188,7 @@ impl HopApp {
             let _ = self.save_history(cmd_to_execute);
             
             let mut updated = false;
-            if *cmd_name == "space" {
+            if should_sync {
                 if let Some(current_wt) = &self.state.current_worktree {
                     if let Some(idx) = self.worktrees.iter().position(|wt| wt == current_wt) {
                         self.selected_index = idx;
@@ -218,26 +213,36 @@ impl HopApp {
         self.history.limit_output((term_height as usize).saturating_sub(7).max(1));
     }
 
-    pub fn prepare_command_execution(&mut self, parts: &[String], cmd_to_execute: &str) -> bool {
+    pub fn prepare_command_execution(&mut self, parts: &[String], cmd_to_execute: &str) -> (bool, Option<Arc<dyn Command>>) {
         let cmd_name = if parts.is_empty() { "" } else { &parts[0] };
-        self.is_terminal_view = cmd_name == "terminal";
+        
+        // アクティブなコマンドを取得
+        let active_cmd = if let Some(cmd) = &self.active_interaction {
+            Some(Arc::clone(cmd))
+        } else {
+            self.commands.iter().find(|c| c.name() == cmd_name).map(Arc::clone)
+        };
+
+        self.is_terminal_view = active_cmd.as_ref().map_or(false, |c| c.is_terminal());
 
         let (_term_height, term_width) = self.term.size();
         let right_width = (term_width as usize).saturating_sub(30).saturating_sub(3);
 
-        let is_session_close = cmd_name == "session" && cmd_to_execute.contains("close");
+        let should_close = active_cmd.as_ref().map_or(false, |c| c.should_close_command_mode(parts));
         let selected_worktree = self.worktrees[self.selected_index].clone();
 
-        if cmd_name != "close" && !is_session_close && !cmd_name.is_empty() {
-            let prompt_sign = if self.is_ai_chat_mode() { "(ai) >" } else if self.is_terminal_view { "$" } else { ">" };
+        if !should_close && !cmd_name.is_empty() {
+            let prompt_sign = active_cmd.as_ref().map_or(">", |c| c.prompt_sign());
             let prompt = format!("{} {} {}", style(&selected_worktree).cyan(), prompt_sign, cmd_to_execute);
             self.history.push_output(&prompt, right_width);
         }
 
-        let mut show_thinking = false;
-        if cmd_name == "ai" && (self.is_ai_chat_mode() || (parts.len() > 1 && parts[1] != "--help" && parts[1] != "-h")) {
-            self.history.push_output(&format!("{}", style("🐰 usagi is thinking..").dim().italic()), right_width);
-            show_thinking = true;
+        let mut is_long_running = false;
+        if let Some(cmd) = &active_cmd {
+            if cmd.is_long_running(parts) {
+                self.history.push_output(&format!("{}", style("🐰 usagi is working..").dim().italic()), right_width);
+                is_long_running = true;
+            }
         }
 
         self.current_input.clear();
@@ -246,34 +251,29 @@ impl HopApp {
         let _ = crate::presentation::cli::hop::ui::render(self);
         let _ = self.term.flush();
         
-        show_thinking
+        (is_long_running, active_cmd)
     }
 
-    pub fn finalize_command_execution(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize, show_thinking: bool) {
+    pub fn finalize_command_execution(&mut self, result: Result<String>, selected_worktree: &str, cmd_to_execute: &str, backup_input: &str, backup_cursor: usize, is_long_running: bool, parts: &[String], cmd: Option<Arc<dyn Command>>) {
         // Re-enter alternate screen and hide cursor to ensure TUI state
         let _ = self.term.write_str("\x1b[?1049h");
         let _ = self.term.hide_cursor();
         let _ = self.term.flush();
 
-        if show_thinking {
+        if is_long_running {
             self.history.pop_output();
         }
 
-        self.handle_command_result(result, selected_worktree, cmd_to_execute, backup_input, backup_cursor);
+        self.handle_command_result(result, selected_worktree, cmd_to_execute, backup_input, backup_cursor, parts, cmd);
     }
 
-    pub async fn run_command_with_parts(&mut self, parts: Vec<String>, cmd_to_execute: &str) -> (Result<String>, bool) {
-        let show_thinking = self.prepare_command_execution(&parts, cmd_to_execute);
+    pub async fn run_command_with_parts(&mut self, parts: Vec<String>, cmd_to_execute: &str) -> (Result<String>, bool, Option<Arc<dyn Command>>) {
+        let (is_long_running, command) = self.prepare_command_execution(&parts, cmd_to_execute);
         let cmd_name = if parts.is_empty() { "".to_string() } else { parts[0].clone() };
         
         let selected_worktree = self.worktrees[self.selected_index].clone();
 
-        let command = self.commands.iter()
-            .find(|c| c.name() == cmd_name)
-            .map(|c| Arc::clone(c));
-
-        let parts = parts;
-        let result: Result<String> = if let Some(cmd) = command {
+        let result: Result<String> = if let Some(cmd) = &command {
             cmd.run(parts, &self.project_path, &selected_worktree, &self.term).await
         } else {
             if cmd_name.is_empty() {
@@ -283,6 +283,6 @@ impl HopApp {
             }
         };
         
-        (result, show_thinking)
+        (result, is_long_running, command)
     }
 }
