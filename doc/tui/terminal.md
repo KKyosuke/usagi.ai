@@ -11,7 +11,7 @@ TUI 内で直接コマンドを実行したり、AI エージェントと対話�
 terminal [command]
 ```
 
-引数を指定しない場合は、OS のデフォルトシェル（macOS/Linux は `/bin/bash`、Windows は `cmd.exe`）が起動します。
+引数を指定しない場合は、OS のデフォルトシェル（環境変数 `SHELL` または `COMSPEC`）が起動します。
 
 ## 例
 

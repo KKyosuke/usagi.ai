@@ -37,11 +37,14 @@ impl DoctorCommand {
         results.push(check_command("git", &["--version"], true));
         
         // Shell
-        if cfg!(windows) {
-            results.push(check_command("cmd.exe", &["/c", "ver"], true));
+        let (shell_name, shell_args) = if cfg!(windows) {
+            let name = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+            (name, vec!["/c", "ver"])
         } else {
-            results.push(check_command("bash", &["--version"], true));
-        }
+            let name = std::env::var("SHELL").unwrap_or_else(|_| "bash".to_string());
+            (name, vec!["--version"])
+        };
+        results.push(check_command(&shell_name, &shell_args, true));
 
         // Common development tools (Optional)
         results.push(check_command("node", &["--version"], false));
@@ -95,13 +98,13 @@ impl DoctorCommand {
     }
 }
 
-fn check_command(name: &'static str, args: &[&str], essential: bool) -> (&'static str, bool, String, bool) {
+fn check_command(name: &str, args: &[&str], essential: bool) -> (String, bool, String, bool) {
     match ProcessCommand::new(name).args(args).output() {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let version = version.lines().next().unwrap_or("").to_string();
-            (name, true, version, essential)
+            (name.to_string(), true, version, essential)
         }
-        _ => (name, false, "Not found".to_string(), essential),
+        _ => (name.to_string(), false, "Not found".to_string(), essential),
     }
 }

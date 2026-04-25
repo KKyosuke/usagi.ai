@@ -86,9 +86,14 @@ Example: terminal /bin/bash"
         })?;
 
         // OSに応じたデフォルトシェル
-        let shell = if cfg!(windows) { "cmd.exe" } else { "/bin/bash" };
+        let shell_env = std::env::var("SHELL");
+        let shell = if cfg!(windows) {
+            std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+        } else {
+            shell_env.unwrap_or_else(|_| "/bin/bash".to_string())
+        };
         let mut cmd = if args.is_empty() || args[0] == "terminal" && args.len() == 1 {
-            CommandBuilder::new(shell)
+            CommandBuilder::new(&shell)
         } else {
             let start_idx = if args[0] == "terminal" { 1 } else { 0 };
             let mut c = CommandBuilder::new(&args[start_idx]);

@@ -19,7 +19,7 @@ doctor
 | ツール | 重要度 | 説明 |
 |---|---|---|
 | `git` | **必須 (Essential)** | リポジトリのクローンやワークツリーの作成に使用します。 |
-| `bash` / `cmd.exe` | **必須 (Essential)** | `terminal` コマンドで起動するデフォルトシェルです。 |
+| デフォルトシェル | **必須 (Essential)** | `terminal` コマンドで起動するデフォルトシェルです。 |
 | `aws` | **必須 (Essential)** | AWS SSO ログインなどの AWS 操作に使用します。 |
 | `node` / `npm` | 任意 (Optional) | AI エージェントの実行や開発環境で必要になる場合があります。 |
 | `python` / `python3` | 任意 (Optional) | AI エージェントの実行やスクリプト実行で必要になる場合があります。 |
