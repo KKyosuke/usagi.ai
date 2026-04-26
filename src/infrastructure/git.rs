@@ -4,11 +4,17 @@ use std::process::Command as ProcessCommand;
 
 /// Clones a repository into `target`, optionally checking out `branch`.
 pub fn clone(url: &str, target: &Path, branch: Option<&str>) -> Result<()> {
-    let mut builder = git2::build::RepoBuilder::new();
+    let mut command = ProcessCommand::new("git");
+    command.arg("clone");
     if let Some(b) = branch {
-        builder.branch(b);
+        command.arg("-b").arg(b);
     }
-    builder.clone(url, target).context("Failed to clone repository")?;
+    command.arg(url).arg(target);
+
+    let status = command.status().context("Failed to execute git clone")?;
+    if !status.success() {
+        return Err(anyhow!("git clone failed."));
+    }
     Ok(())
 }
 
