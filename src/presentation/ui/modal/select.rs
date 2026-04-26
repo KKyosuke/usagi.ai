@@ -1,5 +1,6 @@
 use anyhow::Result;
-use console::{style, Term, measure_text_width};
+use console::{style, Term};
+use crate::presentation::ui::modal::{draw_box_top, draw_box_title, draw_box_divider, draw_box_bottom};
 
 pub struct SelectionModal<'a> {
     pub title: &'a str,
@@ -29,23 +30,15 @@ impl<'a> SelectionModal<'a> {
         let mut offset = 4 + box_height;
 
         // 上枠
-        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-        term.write_str(&style(format!("┌{:─<width$}┐", "", width = popup_width)).cyan().to_string())?;
+        draw_box_top(term, popup_x, height.saturating_sub(offset), popup_width)?;
         offset -= 1;
         
         // タイトル
-        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-        let title_with_padding = format!(" {} ", self.title);
-        let title_len = measure_text_width(&title_with_padding);
-        let left_pad = popup_width.saturating_sub(title_len) / 2;
-        let right_pad = popup_width.saturating_sub(left_pad).saturating_sub(title_len);
-        let title_line = format!("│{:space_width$}{}{:<padding$}│", "", title_with_padding, "", space_width = left_pad, padding = right_pad);
-        term.write_str(&style(title_line).cyan().bold().to_string())?;
+        draw_box_title(term, popup_x, height.saturating_sub(offset), popup_width, self.title)?;
         offset -= 1;
 
         // 区切り線
-        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-        term.write_str(&style(format!("├{:─<width$}┤", "", width = popup_width)).cyan().to_string())?;
+        draw_box_divider(term, popup_x, height.saturating_sub(offset), popup_width)?;
         offset -= 1;
 
         for (idx, name) in self.items.iter().take(display_count).enumerate() {
@@ -62,8 +55,7 @@ impl<'a> SelectionModal<'a> {
         }
 
         // 下枠
-        term.move_cursor_to(popup_x, height.saturating_sub(offset))?;
-        term.write_str(&style(format!("└{:─<width$}┘", "", width = popup_width)).cyan().to_string())?;
+        draw_box_bottom(term, popup_x, height.saturating_sub(offset), popup_width)?;
 
         Ok(())
     }
