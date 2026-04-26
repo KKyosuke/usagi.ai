@@ -63,9 +63,15 @@ impl Worktree {
     }
 }
 
+fn default_version() -> u32 {
+    1
+}
+
 /// Core entity representing the state of an initialized usagi project.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectState {
+    #[serde(default = "default_version")]
+    pub version: u32,
     pub initialized: bool,
     pub worktrees: Vec<Worktree>,
     pub current_worktree: Option<String>,
@@ -88,6 +94,7 @@ mod tests {
     #[test]
     fn test_project_state_serialization() {
         let mut state = ProjectState {
+            version: 1,
             initialized: true,
             worktrees: vec![Worktree {
                 branch: "main".to_string(),

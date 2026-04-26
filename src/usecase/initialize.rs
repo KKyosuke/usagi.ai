@@ -51,6 +51,7 @@ pub fn run(
     let current_branch = git::get_current_branch(main_dir)?;
 
     let mut state = ProjectState {
+        version: 1,
         initialized: true,
         worktrees: vec![Worktree {
             branch: current_branch.clone(),

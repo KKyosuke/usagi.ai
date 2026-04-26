@@ -40,6 +40,7 @@
 
 ```json
 {
+  "version": 1,
   "initialized": true,
   "worktrees": [
     {
@@ -62,6 +63,7 @@
 
 | フィールド | 型 | 説明 |
 |---|---|---|
+| `version` | `u32` | stateファイルのバージョン |
 | `initialized` | `bool` | プロジェクトが初期化済みかどうか |
 | `worktrees` | `Vec<Worktree>` | 作成された worktree オブジェクトの一覧 |
 | `current_worktree` | `String | null` | 現在アクティブな branch 名（`main` の場合は `null`） |
