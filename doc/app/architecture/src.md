@@ -166,8 +166,8 @@ sequenceDiagram
 
 ## 関連ドキュメント
 
-- [UI（ユーザーインターフェース）の構成と名称](./ui.md)
-- [モードの種類と切り替え](./mode.md)
+- [UI（ユーザーインターフェース）の構成と名称](../ui/layout.md)
+- [モードの種類と切り替え](../ui/mode.md)
 - [グローバルDB（共通リポジトリ管理）](./global.md)
-- [プロジェクト設定（usagi.config）](./project_config.md)
-- [初期化後のディレクトリ構造](./directory.md)
+- [プロジェクト設定（usagi.config）](../project/config.md)
+- [初期化後のディレクトリ構造](../project/directory.md)

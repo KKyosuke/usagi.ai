@@ -62,7 +62,7 @@ Use Up/Down to select, Enter to type command, 'q' to quit.
 
 ## モードと操作
 
-`usagi hop` TUI には2つの主要なモードがあります。詳細は [モードドキュメント](../structure/mode.md) を参照してください。
+`usagi hop` TUI には2つの主要なモードがあります。詳細は [モードドキュメント](../app/ui/mode.md) を参照してください。
 
 ### サイドメニューモード（デフォルト）
 
@@ -99,13 +99,13 @@ COMMAND                  │ session
 
 | コマンド | 説明 |
 |---|---|
-| [`ai`](../tui/ai.md) | AI にメッセージを送信する |
-| [`doctor`](../tui/doctor.md) | システム依存関係の確認 |
-| [`history`](../tui/history.md) | コマンド履歴を表示する |
-| [`man`](../tui/man.md) | コマンドのヘルプを表示する |
-| [`session`](../tui/session.md) | セッション（ブランチ＋worktree）を管理する |
-| [`space`](../tui/space.md) | ワークスペース（worktree）を切り替える |
-| [`terminal`](../tui/terminal.md) | 対話型ターミナルの起動 |
+| [`ai`](../app/tui/ai.md) | AI にメッセージを送信する |
+| [`doctor`](../app/tui/doctor.md) | システム依存関係の確認 |
+| [`history`](../app/tui/history.md) | コマンド履歴を表示する |
+| [`man`](../app/tui/man.md) | コマンドのヘルプを表示する |
+| [`session`](../app/tui/session.md) | セッション（ブランチ＋worktree）を管理する |
+| [`space`](../app/tui/space.md) | ワークスペース（worktree）を切り替える |
+| [`terminal`](../app/tui/terminal.md) | 対話型ターミナルの起動 |
 
 ## 処理フロー
 
@@ -134,5 +134,5 @@ flowchart TD
 
 ## 関連ドキュメント
 
-- [TUI コマンド一覧](../tui/index.md)
-- [モードの種類と切り替え](../structure/mode.md)
+- [TUI コマンド一覧](../app/tui/index.md)
+- [モードの種類と切り替え](../app/ui/mode.md)

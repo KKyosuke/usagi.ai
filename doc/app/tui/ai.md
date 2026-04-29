@@ -33,4 +33,4 @@ ai chat [OPTIONS]
 ## 関連ドキュメント
 
 - [TUI コマンド一覧](./index.md)
-- [モードの種類と切り替え](../structure/mode.md)
+- [モードの種類と切り替え](../ui/mode.md)

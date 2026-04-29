@@ -39,4 +39,4 @@ history
 ## 関連ドキュメント
 
 - [TUI コマンド一覧](./index.md)
-- [初期化後のディレクトリ構造](../structure/directory.md)
+- [初期化後のディレクトリ構造](../project/directory.md)

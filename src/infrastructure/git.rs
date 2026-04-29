@@ -1,14 +1,38 @@
+//! Git Infrastructure Module
+//!
+//! # Architecture Policy
+//! This module uses two different approaches for interacting with Git, depending on the operation:
+//!
+//! 1. **System `git` Command Line (Network & State Mutation)**
+//!    - Used for: `clone`, `fetch`, `push`, `worktree` operations, `rebase`, etc.
+//!    - Reason: Operations that involve network communication (especially SSH) require complex handling of credentials,
+//!      passphrases, `~/.ssh/config`, and `ssh-agent`. Attempting to handle all these edge cases securely and reliably
+//!      using `git2` is complicated and prone to failure. Delegating to the native `git` CLI ensures that the user's
+//!      existing SSH and Git configurations are respected automatically.
+//!
+//! 2. **`git2` Library (Local Inspection & Read-only)**
+//!    - Used for: `get_current_branch`, `has_upstream`, etc.
+//!    - Reason: Reading repository states locally using `git2` provides type safety and better performance compared
+//!      to spawning subprocesses and parsing string outputs.
+//!
+
 use anyhow::{Result, Context, anyhow};
 use std::path::Path;
 use std::process::Command as ProcessCommand;
 
 /// Clones a repository into `target`, optionally checking out `branch`.
 pub fn clone(url: &str, target: &Path, branch: Option<&str>) -> Result<()> {
-    let mut builder = git2::build::RepoBuilder::new();
+    let mut command = ProcessCommand::new("git");
+    command.arg("clone");
     if let Some(b) = branch {
-        builder.branch(b);
+        command.arg("-b").arg(b);
     }
-    builder.clone(url, target).context("Failed to clone repository")?;
+    command.arg(url).arg(target);
+
+    let status = command.status().context("Failed to execute git clone")?;
+    if !status.success() {
+        return Err(anyhow!("git clone failed."));
+    }
     Ok(())
 }
 

@@ -43,6 +43,7 @@ mod tests {
         let worktree_path = std::path::PathBuf::from("main");
 
         let state = ProjectState {
+            version: 1,
             initialized: true,
             worktrees: vec![Worktree {
                 branch: "main".to_string(),

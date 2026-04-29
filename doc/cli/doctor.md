@@ -49,5 +49,5 @@ usagi doctor
 
 ## 関連ドキュメント
 
-- [TUI 版 `doctor`](../tui/doctor.md)
+- [TUI 版 `doctor`](../app/tui/doctor.md)
 - [`usagi init`](./init.md)

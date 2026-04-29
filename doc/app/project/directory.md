@@ -40,6 +40,7 @@
 
 ```json
 {
+  "version": 1,
   "initialized": true,
   "worktrees": [
     {
@@ -62,6 +63,7 @@
 
 | フィールド | 型 | 説明 |
 |---|---|---|
+| `version` | `u32` | stateファイルのバージョン |
 | `initialized` | `bool` | プロジェクトが初期化済みかどうか |
 | `worktrees` | `Vec<Worktree>` | 作成された worktree オブジェクトの一覧 |
 | `current_worktree` | `String | null` | 現在アクティブな branch 名（`main` の場合は `null`） |
@@ -89,7 +91,7 @@ TUI コマンドの実行履歴を管理する JSON ファイルです。
 ユーザーが参照・編集できる設定ファイルです。
 初期状態では `usagi init` 時に指定したリポジトリの URL が記録されます。
 
-詳細は [プロジェクト設定（usagi.config）](./project_config.md) を参照してください。
+詳細は [プロジェクト設定（usagi.config）](./config.md) を参照してください。
 
 ### `.gitignore`
 
@@ -98,6 +100,6 @@ TUI コマンドの実行履歴を管理する JSON ファイルです。
 
 ## 関連ドキュメント
 
-- [`usagi init` コマンド](../cli/init.md)
+- [`usagi init` コマンド](../../cli/init.md)
 - [`session` コマンド](../tui/session.md)
-- [グローバルDB（共通リポジトリ管理）](./global.md)
+- [グローバルDB（共通リポジトリ管理）](../architecture/global.md)
