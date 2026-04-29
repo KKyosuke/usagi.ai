@@ -63,5 +63,5 @@ flowchart TD
 
 ## 関連ドキュメント
 
-- [初期化後のディレクトリ構造](../structure/directory.md)
-- [グローバルDB（共通リポジトリ管理）](../structure/global.md)
+- [初期化後のディレクトリ構造](../app/project/directory.md)
+- [グローバルDB（共通リポジトリ管理）](../app/architecture/global.md)

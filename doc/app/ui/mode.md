@@ -81,6 +81,6 @@ AIチャット（`ai` コマンド）など、特定のコマンドが実行さ�
 ## 関連ドキュメント
 
 - [画面遷移](./transition.md)
-- [UI（ユーザーインターフェース）の構成と名称](./ui.md)
-- [`usagi hop` コマンド](../cli/hop.md)
+- [UI（ユーザーインターフェース）の構成と名称](./layout.md)
+- [`usagi hop` コマンド](../../cli/hop.md)
 - [TUI コマンド一覧](../tui/index.md)

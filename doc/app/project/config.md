@@ -28,5 +28,5 @@ repository_url = "https://github.com/KKyosuke/sqlalchemy-test.git"
 ## 関連ドキュメント
 
 - [初期化後のディレクトリ構造](./directory.md)
-- [グローバルDB（共通リポジトリ管理）](./global.md)
-- [`usagi init` コマンド](../cli/init.md)
+- [グローバルDB（共通リポジトリ管理）](../architecture/global.md)
+- [`usagi init` コマンド](../../cli/init.md)

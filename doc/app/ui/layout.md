@@ -93,4 +93,4 @@ COMMAND              | ai
 
 - [画面遷移](./transition.md)
 - [モードの種類と切り替え](./mode.md)
-- [ソースコードの構造](./src.md)
+- [ソースコードの構造](../architecture/src.md)

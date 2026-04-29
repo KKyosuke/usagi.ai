@@ -23,5 +23,5 @@
 
 ## 関連ドキュメント
 
-- [`usagi hop` コマンド](../cli/hop.md)
-- [モードの種類と切り替え](../structure/mode.md)
+- [`usagi hop` コマンド](../../cli/hop.md)
+- [モードの種類と切り替え](../ui/mode.md)

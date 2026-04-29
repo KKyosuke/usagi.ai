@@ -58,6 +58,6 @@ flowchart LR
 
 ## 関連ドキュメント
 
-- [プロジェクト設定（usagi.config）](./project_config.md)
-- [`usagi init`](../cli/init.md)
-- [`usagi hop`](../cli/hop.md)
+- [プロジェクト設定（usagi.config）](../project/config.md)
+- [`usagi init`](../../cli/init.md)
+- [`usagi hop`](../../cli/hop.md)
