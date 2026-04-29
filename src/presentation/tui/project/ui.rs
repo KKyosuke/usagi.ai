@@ -9,7 +9,13 @@ pub fn render(term: &Term, repos: &[PathBuf], selected_index: usize) -> anyhow::
 
     let mut max_repo_width = 0;
     for repo in repos {
-        let label = repo.display().to_string();
+        let is_deleted = crate::infrastructure::project_state::get_project_state(repo).is_err();
+        let label = if is_deleted {
+            format!("{} (--deleted)", repo.display())
+        } else {
+            repo.display().to_string()
+        };
+        
         let mut current_width = label.chars().count() + 2; // "> " or "  "
         if let Ok(state) = crate::infrastructure::project_state::get_project_state(repo) {
             if let Some(time) = state.last_updated {
@@ -38,20 +44,41 @@ pub fn render(term: &Term, repos: &[PathBuf], selected_index: usize) -> anyhow::
 
     for (i, repo) in repos.iter().enumerate() {
         let mut last_updated = None;
-        if let Ok(state) = crate::infrastructure::project_state::get_project_state(repo) {
-            last_updated = state.last_updated;
+        let mut is_deleted = false;
+        
+        match crate::infrastructure::project_state::get_project_state(repo) {
+            Ok(state) => {
+                last_updated = state.last_updated;
+            }
+            Err(_) => {
+                is_deleted = true;
+            }
         }
 
-        let label = repo.display().to_string();
+        let label = if is_deleted {
+            format!("{} (--deleted)", repo.display())
+        } else {
+            repo.display().to_string()
+        };
 
         if i == selected_index {
+            let styled_label = if is_deleted {
+                style(label).dim().cyan().bold()
+            } else {
+                style(label).cyan().bold()
+            };
             term.write_line(&format!(
                 "{}> {}",
                 " ".repeat(left_padding),
-                style(label).cyan().bold()
+                styled_label
             ))?;
         } else {
-            term.write_line(&format!("{}  {}", " ".repeat(left_padding), label))?;
+            let styled_label = if is_deleted {
+                style(label).dim().to_string()
+            } else {
+                label
+            };
+            term.write_line(&format!("{}  {}", " ".repeat(left_padding), styled_label))?;
         }
 
         if let Some(time) = last_updated {

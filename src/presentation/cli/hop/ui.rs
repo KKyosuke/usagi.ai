@@ -48,10 +48,18 @@ pub fn render(app: &HopApp) -> Result<()> {
                     } else {
                         "".to_string()
                     };
-                    if wt_idx == app.selected_index {
-                        format!("{} {}  {}{}  {}", cursor, mark, style(&wt.branch).cyan().bold(), upstream_icon, status_icon)
+                    
+                    let exists = app.project_path.join(&wt.directory).exists();
+                    let branch_text = if exists {
+                        wt.branch.clone()
                     } else {
-                        format!("{} {}  {}{}  {}", cursor, mark, &wt.branch, upstream_icon, status_icon)
+                        format!("{} (--deleted)", wt.branch)
+                    };
+
+                    if wt_idx == app.selected_index {
+                        format!("{} {}  {}{}  {}", cursor, mark, style(&branch_text).cyan().bold(), upstream_icon, status_icon)
+                    } else {
+                        format!("{} {}  {}{}  {}", cursor, mark, if exists { branch_text } else { style(&branch_text).dim().to_string() }, upstream_icon, status_icon)
                     }
                 } else {
                     format!("   {}", style(utils::format_modified_at(&wt.modified_at)).dim())
