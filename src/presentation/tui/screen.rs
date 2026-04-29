@@ -4,6 +4,25 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static EXIT_MESSAGE_PRINTED: AtomicBool = AtomicBool::new(false);
 
+pub static HANDLE_CTRL_C_AS_EXIT: AtomicBool = AtomicBool::new(true);
+
+pub struct CtrlCExitGuard {
+    original: bool,
+}
+
+impl CtrlCExitGuard {
+    pub fn new(exit_on_ctrl_c: bool) -> Self {
+        let original = HANDLE_CTRL_C_AS_EXIT.swap(exit_on_ctrl_c, Ordering::SeqCst);
+        Self { original }
+    }
+}
+
+impl Drop for CtrlCExitGuard {
+    fn drop(&mut self) {
+        HANDLE_CTRL_C_AS_EXIT.store(self.original, Ordering::SeqCst);
+    }
+}
+
 /// RAII guard that activates the terminal alternate screen and restores it on drop.
 pub struct AlternateScreenGuard {
     pub term: Term,
@@ -19,12 +38,14 @@ impl AlternateScreenGuard {
 
         let t = term.clone();
         let _ = ctrlc::set_handler(move || {
-            let _ = t.write_str("\x1b[?1049l");
-            let _ = t.show_cursor();
-            if !EXIT_MESSAGE_PRINTED.swap(true, Ordering::SeqCst) {
-                let _ = t.write_line("USAGI run away ( ^-^)ノ");
+            if HANDLE_CTRL_C_AS_EXIT.load(Ordering::SeqCst) {
+                let _ = t.write_str("\x1b[?1049l");
+                let _ = t.show_cursor();
+                if !EXIT_MESSAGE_PRINTED.swap(true, Ordering::SeqCst) {
+                    let _ = t.write_line("USAGI run away ( ^-^)ノ");
+                }
+                std::process::exit(0);
             }
-            std::process::exit(0);
         });
 
         Ok(Self { term, is_active: true })

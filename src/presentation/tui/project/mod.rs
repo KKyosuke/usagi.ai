@@ -10,6 +10,10 @@ pub fn run(repos: &[PathBuf]) -> Result<Option<PathBuf>> {
     let term = Term::stdout();
     let mut _guard = AlternateScreenGuard::new(term.clone())?;
     
+    // Disable Ctrl+C hard exit while in the project selection screen.
+    // Instead, it will interrupt read_key() and return back to the home screen.
+    let _ctrlc_guard = crate::presentation::tui::screen::CtrlCExitGuard::new(false);
+
     let mut selected_index = 0;
     if repos.is_empty() {
         term.clear_screen()?;
@@ -18,6 +22,7 @@ pub fn run(repos: &[PathBuf]) -> Result<Option<PathBuf>> {
         term.write_line("")?;
         term.write_line("Press any key to return to menu...")?;
         term.read_key()?;
+        _guard.dismiss();
         return Ok(None);
     }
 
@@ -28,6 +33,7 @@ pub fn run(repos: &[PathBuf]) -> Result<Option<PathBuf>> {
             Ok(k) => k,
             Err(e) => {
                 if e.to_string().contains("read interrupted") {
+                    _guard.dismiss();
                     return Ok(None);
                 }
                 return Err(anyhow::Error::from(e).context("Failed to read key"));
@@ -49,9 +55,11 @@ pub fn run(repos: &[PathBuf]) -> Result<Option<PathBuf>> {
                 return Ok(Some(repos[selected_index].clone()));
             }
             Key::Escape | Key::Char('q') | Key::CtrlC => {
+                _guard.dismiss();
                 return Ok(None);
             }
             _ => {}
         }
     }
 }
+
